@@ -46,7 +46,8 @@ export async function POST(req) {
       amount: amountValue,
       validity: validityDays,
       deadline: deadlineDate,
-      closed: false
+      closed: false,
+      paid:false
     });
 
     return Response.json(

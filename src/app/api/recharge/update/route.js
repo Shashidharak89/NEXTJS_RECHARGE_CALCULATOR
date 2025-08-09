@@ -35,7 +35,10 @@ export async function PUT(req) {
     existing.reason = body.reason ?? existing.reason;
     existing.amount = body.amount ?? existing.amount;
     existing.validity = body.validity ?? existing.validity;
-    existing.lastrecharge = body.lastrecharge ? new Date(body.lastrecharge) : existing.lastrecharge;
+    existing.lastrecharge = body.lastrecharge
+      ? new Date(body.lastrecharge)
+      : existing.lastrecharge;
+
     existing.deadline = body.deadline
       ? new Date(body.deadline)
       : (() => {
@@ -48,6 +51,11 @@ export async function PUT(req) {
     // Handle closed tickbox
     if (typeof body.closed === "boolean") {
       existing.closed = body.closed;
+    }
+
+    // Handle paid tickbox
+    if (typeof body.paid === "boolean") {
+      existing.paid = body.paid;
     }
 
     await existing.save();

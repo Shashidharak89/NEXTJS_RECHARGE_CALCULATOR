@@ -30,6 +30,10 @@ const RechargeSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
+    paid:{
+      type:Boolean,
+      default:false
+    },
     validity: {
       type: String,
       default: "28"
