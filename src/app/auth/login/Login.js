@@ -54,9 +54,7 @@ export default function Login() {
     }
   };
 
-  const handleRegisterRedirect = () => {
-    router.push("/auth/register");
-  };
+ 
 
   return (
     <div className="login-container">
@@ -155,9 +153,7 @@ export default function Login() {
         <div className="login-footer">
           <p className="register-text">
             Don&apos;t have an account?{" "}
-            <button onClick={handleRegisterRedirect} className="register-link">
-              Register here
-            </button>
+            
           </p>
         </div>
       </div>
