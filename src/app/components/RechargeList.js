@@ -16,7 +16,8 @@ import {
   FaEye,
   FaCheck,
   FaExclamationTriangle,
-  FaTrashAlt
+  FaTrashAlt,
+  FaCoins
 } from "react-icons/fa";
 import axios from "axios";
 import "./styles/RechargeList.css";
@@ -158,6 +159,20 @@ export default function RechargeList() {
       fetchRecharges();
     } catch (err) {
       showNotification('error', 'Error updating status: ' + (err.response?.data?.error || err.message));
+    }
+  };
+
+  const handlePaidToggle = async (id, paid) => {
+    try {
+      await axios.put(
+        "/api/recharge/update",
+        { id, paid },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      fetchRecharges();
+      showNotification('success', `Payment status updated to ${paid ? 'Paid' : 'Unpaid'}`);
+    } catch (err) {
+      showNotification('error', 'Error updating payment status: ' + (err.response?.data?.error || err.message));
     }
   };
 
@@ -441,6 +456,10 @@ export default function RechargeList() {
                     {record.closed ? <FaTimesCircle /> : <FaCheckCircle />}
                     {record.closed ? 'Closed' : 'Active'}
                   </div>
+                  <div className={`status-badge paid-badge ${record.paid ? 'paid' : 'unpaid'}`}>
+                    <FaCoins />
+                    {record.paid ? 'Paid' : 'Unpaid'}
+                  </div>
                   <button
                     className="edit-button"
                     onClick={() => startEdit(record)}
@@ -501,16 +520,29 @@ export default function RechargeList() {
               </div>
 
               <div className="record-footer">
-                <label className="checkbox-container">
-                  <input
-                    type="checkbox"
-                    checked={record.closed}
-                    onChange={(e) => handleClosedToggle(record._id, e.target.checked)}
-                    className="status-checkbox"
-                  />
-                  <span className="checkmark"></span>
-                  Mark as {record.closed ? 'Open' : 'Closed'}
-                </label>
+                <div className="checkbox-group">
+                  <label className="checkbox-container">
+                    <input
+                      type="checkbox"
+                      checked={record.closed}
+                      onChange={(e) => handleClosedToggle(record._id, e.target.checked)}
+                      className="status-checkbox"
+                    />
+                    <span className="checkmark"></span>
+                    Mark as {record.closed ? 'Open' : 'Closed'}
+                  </label>
+                  
+                  <label className="checkbox-container">
+                    <input
+                      type="checkbox"
+                      checked={record.paid || false}
+                      onChange={(e) => handlePaidToggle(record._id, e.target.checked)}
+                      className="status-checkbox paid-checkbox"
+                    />
+                    <span className="checkmark"></span>
+                    Mark as {record.paid ? 'Unpaid' : 'Paid'}
+                  </label>
+                </div>
               </div>
             </div>
           ))}

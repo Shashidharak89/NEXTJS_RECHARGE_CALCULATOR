@@ -475,6 +475,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .status-badge {
@@ -497,6 +498,19 @@
   background: rgba(239, 68, 68, 0.2);
   color: #ef4444;
   border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Paid Status Badge Styles */
+.paid-badge.paid {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.paid-badge.unpaid {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .edit-button {
@@ -583,6 +597,12 @@
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .checkbox-container {
   display: flex;
   align-items: center;
@@ -609,6 +629,11 @@
 .status-checkbox:checked {
   background: #4ade80;
   border-color: #4ade80;
+}
+
+.paid-checkbox:checked {
+  background: #10b981;
+  border-color: #10b981;
 }
 
 .status-checkbox:checked::after {
@@ -835,6 +860,10 @@
     align-self: flex-end;
     flex-wrap: wrap;
     gap: 8px;
+  }
+  
+  .checkbox-group {
+    gap: 10px;
   }
   
   .record-details {
