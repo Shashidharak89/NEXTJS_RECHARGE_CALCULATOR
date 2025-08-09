@@ -1,12 +1,13 @@
 "use client";
 import { useUser } from "context/UserContext";
 import React, { useEffect, useState } from "react";
-import { FaPlus } from "react-icons/fa";
+import { FaPlus, FaEdit } from "react-icons/fa";
 import axios from "axios";
 
 export default function RechargeList() {
   const [recharges, setRecharges] = useState([]);
   const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({
     name: "",
     phone: "",
@@ -19,7 +20,6 @@ export default function RechargeList() {
 
   const { loading, setLoading } = useUser();
 
-  // ✅ Only run in browser
   useEffect(() => {
     const savedToken = localStorage.getItem("token");
     if (savedToken) {
@@ -32,7 +32,13 @@ export default function RechargeList() {
       const res = await axios.get("/api/recharge/all", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setRecharges(res.data.recharges.reverse() || []);
+
+      // Put open records first, closed ones last
+      const sorted = [...res.data.recharges].sort((a, b) => {
+        return a.closed === b.closed ? 0 : a.closed ? 1 : -1;
+      });
+
+      setRecharges(sorted);
     } catch (err) {
       alert("Error fetching data: " + (err.response?.data?.error || err.message));
     }
@@ -47,12 +53,26 @@ export default function RechargeList() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+
     try {
-      await axios.post("/api/recharge/create", form, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      alert("Recharge created!");
+      if (editId) {
+        // Update existing
+        await axios.put(
+          "/api/recharge/update",
+          { id: editId, ...form },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        alert("Recharge updated!");
+      } else {
+        // Create new
+        await axios.post("/api/recharge/create", form, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        alert("Recharge created!");
+      }
+
       setShowForm(false);
+      setEditId(null);
       setForm({
         name: "",
         phone: "",
@@ -63,10 +83,36 @@ export default function RechargeList() {
       });
       fetchRecharges();
     } catch (err) {
-      alert("Error creating: " + (err.response?.data?.error || err.message));
+      alert("Error saving: " + (err.response?.data?.error || err.message));
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleClosedToggle = async (id, closed) => {
+    try {
+      await axios.put(
+        "/api/recharge/update",
+        { id, closed },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      fetchRecharges();
+    } catch (err) {
+      alert("Error updating closed status: " + (err.response?.data?.error || err.message));
+    }
+  };
+
+  const startEdit = (record) => {
+    setEditId(record._id);
+    setForm({
+      name: record.name,
+      phone: record.phone,
+      reason: record.reason,
+      lastrecharge: record.lastrecharge ? record.lastrecharge.split("T")[0] : "",
+      amount: record.amount,
+      validity: record.validity,
+    });
+    setShowForm(true);
   };
 
   return (
@@ -74,13 +120,32 @@ export default function RechargeList() {
       <h2 style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         Recharge Records
         <FaPlus
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => {
+            setEditId(null);
+            setForm({
+              name: "",
+              phone: "",
+              reason: "",
+              lastrecharge: "",
+              amount: "",
+              validity: "",
+            });
+            setShowForm(!showForm);
+          }}
           style={{ cursor: "pointer", color: "green" }}
         />
       </h2>
 
       {showForm && (
-        <form onSubmit={handleSubmit} style={{ margin: "10px 0", padding: "10px", background: "#222", borderRadius: "5px" }}>
+        <form
+          onSubmit={handleSubmit}
+          style={{
+            margin: "10px 0",
+            padding: "10px",
+            background: "#222",
+            borderRadius: "5px",
+          }}
+        >
           <input
             type="text"
             placeholder="Name"
@@ -89,18 +154,68 @@ export default function RechargeList() {
             required
             style={{ display: "block", margin: "5px 0", padding: "8px", width: "100%" }}
           />
-          <input type="text" placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} style={{ display: "block", margin: "5px 0", padding: "8px", width: "100%" }} />
-          <input type="text" placeholder="Reason" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} style={{ display: "block", margin: "5px 0", padding: "8px", width: "100%" }} />
-          <input type="date" placeholder="Last Recharge Date" value={form.lastrecharge} onChange={(e) => setForm({ ...form, lastrecharge: e.target.value })} style={{ display: "block", margin: "5px 0", padding: "8px", width: "100%" }} />
-          <input type="number" placeholder="Amount" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} style={{ display: "block", margin: "5px 0", padding: "8px", width: "100%" }} />
-          <input type="number" placeholder="Validity (days)" value={form.validity} onChange={(e) => setForm({ ...form, validity: e.target.value })} style={{ display: "block", margin: "5px 0", padding: "8px", width: "100%" }} />
-          <button type="submit" disabled={loading} style={{ background: "green", color: "white", padding: "8px 15px", border: "none", borderRadius: "4px", cursor: "pointer" }}>
-            {loading ? "Saving..." : "Save"}
+          <input
+            type="text"
+            placeholder="Phone"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            style={{ display: "block", margin: "5px 0", padding: "8px", width: "100%" }}
+          />
+          <input
+            type="text"
+            placeholder="Reason"
+            value={form.reason}
+            onChange={(e) => setForm({ ...form, reason: e.target.value })}
+            style={{ display: "block", margin: "5px 0", padding: "8px", width: "100%" }}
+          />
+          <input
+            type="date"
+            placeholder="Last Recharge Date"
+            value={form.lastrecharge}
+            onChange={(e) => setForm({ ...form, lastrecharge: e.target.value })}
+            style={{ display: "block", margin: "5px 0", padding: "8px", width: "100%" }}
+          />
+          <input
+            type="number"
+            placeholder="Amount"
+            value={form.amount}
+            onChange={(e) => setForm({ ...form, amount: e.target.value })}
+            style={{ display: "block", margin: "5px 0", padding: "8px", width: "100%" }}
+          />
+          <input
+            type="number"
+            placeholder="Validity (days)"
+            value={form.validity}
+            onChange={(e) => setForm({ ...form, validity: e.target.value })}
+            style={{ display: "block", margin: "5px 0", padding: "8px", width: "100%" }}
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              background: "green",
+              color: "white",
+              padding: "8px 15px",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+            }}
+          >
+            {loading ? "Saving..." : editId ? "Update" : "Save"}
           </button>
         </form>
       )}
 
-      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "20px", fontSize: "14px", background: "#111", color: "white" }}>
+      <table
+        style={{
+          width: "100%",
+          borderCollapse: "collapse",
+          marginTop: "20px",
+          fontSize: "14px",
+          background: "#111",
+          color: "white",
+        }}
+      >
         <thead>
           <tr style={{ background: "#222" }}>
             <th style={{ padding: "8px", border: "1px solid #444" }}>Name</th>
@@ -110,18 +225,37 @@ export default function RechargeList() {
             <th style={{ padding: "8px", border: "1px solid #444" }}>Validity</th>
             <th style={{ padding: "8px", border: "1px solid #444" }}>Last Recharge</th>
             <th style={{ padding: "8px", border: "1px solid #444" }}>Deadline</th>
+            <th style={{ padding: "8px", border: "1px solid #444" }}>Closed</th>
+            <th style={{ padding: "8px", border: "1px solid #444" }}>Edit</th>
           </tr>
         </thead>
         <tbody>
           {recharges.map((r) => (
-            <tr key={r._id}>
+            <tr key={r._id} style={{ opacity: r.closed ? 0.5 : 1 }}>
               <td style={{ padding: "8px", border: "1px solid #444" }}>{r.name}</td>
               <td style={{ padding: "8px", border: "1px solid #444" }}>{r.phone}</td>
               <td style={{ padding: "8px", border: "1px solid #444" }}>{r.reason}</td>
               <td style={{ padding: "8px", border: "1px solid #444" }}>{r.amount}</td>
               <td style={{ padding: "8px", border: "1px solid #444" }}>{r.validity}</td>
-              <td style={{ padding: "8px", border: "1px solid #444" }}>{new Date(r.lastrecharge).toLocaleDateString()}</td>
-              <td style={{ padding: "8px", border: "1px solid #444" }}>{new Date(r.deadline).toLocaleDateString()}</td>
+              <td style={{ padding: "8px", border: "1px solid #444" }}>
+                {new Date(r.lastrecharge).toLocaleDateString()}
+              </td>
+              <td style={{ padding: "8px", border: "1px solid #444" }}>
+                {new Date(r.deadline).toLocaleDateString()}
+              </td>
+              <td style={{ padding: "8px", border: "1px solid #444", textAlign: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={r.closed}
+                  onChange={(e) => handleClosedToggle(r._id, e.target.checked)}
+                />
+              </td>
+              <td style={{ padding: "8px", border: "1px solid #444", textAlign: "center" }}>
+                <FaEdit
+                  style={{ cursor: "pointer", color: "skyblue" }}
+                  onClick={() => startEdit(r)}
+                />
+              </td>
             </tr>
           ))}
         </tbody>
