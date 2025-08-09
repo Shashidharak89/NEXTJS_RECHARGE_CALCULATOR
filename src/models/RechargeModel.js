@@ -18,9 +18,9 @@ const RechargeSchema = new mongoose.Schema(
       type: Date,
       default: Date.now
     },
-    amount:{
-      type:Number,
-      default:199
+    amount: {
+      type: String,
+      default: "199"
     },
     deadline: {
       type: Date,
@@ -30,9 +30,9 @@ const RechargeSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
-    validity:{
-      type:Number,
-      default:28
+    validity: {
+      type: String,
+      default: "28"
     }
   },
   { timestamps: true }

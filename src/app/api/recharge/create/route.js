@@ -27,29 +27,31 @@ export async function POST(req) {
       ? new Date(body.lastrecharge)
       : new Date();
 
-    // Determine validity days
-    const validityDays = body.validity || 28;
+    // Determine validity days (string now)
+    const validityDays = body.validity || "28";
 
-    // Calculate deadline from lastrecharge + validity
+    // Determine amount (string now)
+    const amountValue = body.amount || "199";
+
+    // Calculate deadline: lastRecharge + validityDays
     const deadlineDate = new Date(lastRechargeDate);
-    deadlineDate.setDate(deadlineDate.getDate() + validityDays);
+    deadlineDate.setDate(deadlineDate.getDate() + parseInt(validityDays, 10));
 
     const recharge = await Recharge.create({
       name: body.name,
-      phone: body.phone || undefined,     // default: "9999999999"
-      reason: body.reason || "Recharge",     // default: ""
+      phone: body.phone || undefined,       // default: "9999999999"
+      reason: body.reason || "Recharge",    // default: "Recharge"
       lastrecharge: lastRechargeDate,
-      amount: body.amount || undefined,   // default: 199
-      validity: validityDays,
-      deadline: deadlineDate,             // calculated automatically
-      closed: false,                       // always false
-      createdBy: decoded._id               // optional
+      amount: amountValue,                  // store as string
+      validity: validityDays,               // store as string
+      deadline: deadlineDate,
+      closed: false,
+      createdBy: decoded._id || null
     });
 
     return Response.json(
       {
         message: "Recharge record created successfully",
-        createdBy: decoded._id,
         recharge
       },
       { status: 201 }
