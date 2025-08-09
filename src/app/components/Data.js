@@ -4,6 +4,7 @@ import { useUser } from "context/UserContext";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import "./styles/Data.css";
+import RechargeList from "./RechargeList";
 
 const Data = () => {
     const { isLogin } = useUser();
@@ -69,7 +70,7 @@ const Data = () => {
                     </p>
                 </header>
                 
-                <div className="content-grid">
+                {/* <div className="content-grid">
                     <div className="content-card">
                         <h3 className="card-title">Recent Activity</h3>
                         <p className="card-description">Your latest actions and updates</p>
@@ -82,7 +83,8 @@ const Data = () => {
                         <h3 className="card-title">Analytics</h3>
                         <p className="card-description">View your data and insights</p>
                     </div>
-                </div>
+                </div> */}
+                <RechargeList/>
             </div>
         </div>
     );
