@@ -260,14 +260,24 @@ export default function Suggestion() {
           {/* Progress indicator */}
           {suggestions.length > 1 && (
             <div className="suggestion-progress">
-              {suggestions.map((_, index) => (
-                <div
-                  key={index}
-                  className={`suggestion-progress-dot ${index === currentIndex ? 'active' : ''}`}
-                  onClick={() => handleDotClick(index)}
-                  aria-label={`Go to suggestion ${index + 1}`}
-                />
-              ))}
+              {suggestions.length <= 20 ? (
+                // Show dots for 20 or fewer suggestions
+                suggestions.map((_, index) => (
+                  <div
+                    key={index}
+                    className={`suggestion-progress-dot ${index === currentIndex ? 'active' : ''}`}
+                    onClick={() => handleDotClick(index)}
+                    aria-label={`Go to suggestion ${index + 1}`}
+                  />
+                ))
+              ) : (
+                // Show numerical counter for more than 20 suggestions
+                <div className="suggestion-counter">
+                  <span className="suggestion-counter-text">
+                    {currentIndex + 1} of {suggestions.length}
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>

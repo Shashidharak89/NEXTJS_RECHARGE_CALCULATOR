@@ -336,6 +336,7 @@
   margin-top: 16px;
   padding-top: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
+  min-height: 20px;
 }
 
 .suggestion-progress-dot {
@@ -356,6 +357,23 @@
 .suggestion-progress-dot:hover {
   background: rgba(255, 255, 255, 0.5);
   transform: scale(1.2);
+}
+
+/* Numerical counter for 20+ suggestions */
+.suggestion-counter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.suggestion-counter-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 4px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* Preview card specific styles */
