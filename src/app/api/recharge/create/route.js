@@ -1,4 +1,3 @@
-// app/api/recharge/route.js
 import dbConnect from "lib/dbConnect.js";
 import Recharge from "models/RechargeModel.js";
 import { verifyToken } from "lib/verifyToken.js";
@@ -6,7 +5,7 @@ import { verifyToken } from "lib/verifyToken.js";
 export async function POST(req) {
   await dbConnect();
 
-  // Verify JWT Bearer token
+  // Verify JWT token
   let decoded;
   try {
     decoded = verifyToken(req);
@@ -16,44 +15,42 @@ export async function POST(req) {
 
   const body = await req.json();
 
-  // Name is mandatory
+  // Name is required
   if (!body.name) {
     return Response.json({ error: "Name is required" }, { status: 400 });
   }
 
   try {
-    // Determine lastrecharge date
+    // Last recharge date
     const lastRechargeDate = body.lastrecharge
       ? new Date(body.lastrecharge)
       : new Date();
 
-    // Determine validity days (string now)
-    const validityDays = body.validity || "28";
+    // Validity (string) - use default if not provided
+    const validityDays = body.validity?.toString() || undefined;
 
-    // Determine amount (string now)
-    const amountValue = body.amount || "199";
+    // Amount (string) - use default if not provided
+    const amountValue = body.amount?.toString() || undefined;
 
     // Calculate deadline: lastRecharge + validityDays
     const deadlineDate = new Date(lastRechargeDate);
-    deadlineDate.setDate(deadlineDate.getDate() + parseInt(validityDays, 10));
+    deadlineDate.setDate(
+      deadlineDate.getDate() + parseInt(validityDays || "28", 10)
+    );
 
     const recharge = await Recharge.create({
       name: body.name,
-      phone: body.phone || undefined,       // default: "9999999999"
-      reason: body.reason || "Recharge",    // default: "Recharge"
+      phone: body.phone || undefined,
+      reason: body.reason || "Recharge",
       lastrecharge: lastRechargeDate,
-      amount: amountValue,                  // store as string
-      validity: validityDays,               // store as string
+      amount: amountValue,
+      validity: validityDays,
       deadline: deadlineDate,
-      closed: false,
-      createdBy: decoded._id || null
+      closed: false
     });
 
     return Response.json(
-      {
-        message: "Recharge record created successfully",
-        recharge
-      },
+      { message: "Recharge record created successfully", recharge },
       { status: 201 }
     );
   } catch (err) {

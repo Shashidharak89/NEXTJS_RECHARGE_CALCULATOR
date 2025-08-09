@@ -38,7 +38,8 @@ const RechargeSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const Recharge =
-  mongoose.models.Recharge || mongoose.model("Recharge", RechargeSchema);
+// ✅ Fix schema caching in Next.js
+delete mongoose.models.Recharge;
+const Recharge = mongoose.model("Recharge", RechargeSchema);
 
 export default Recharge;
