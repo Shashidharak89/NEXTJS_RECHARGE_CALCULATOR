@@ -65,7 +65,7 @@ const Data = () => {
                     <div className="welcome-badge">Welcome back!</div>
                     <h1 className="homepage-title">Dashboard</h1>
                     <p className="homepage-subtitle">
-                        You're successfully logged in. Here's your personalized homepage.
+                        You are successfully logged in. Here is your personalized homepage.
                     </p>
                 </header>
                 
