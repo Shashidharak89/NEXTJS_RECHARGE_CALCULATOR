@@ -12,11 +12,15 @@ const RechargeSchema = new mongoose.Schema(
     },
     reason: {
       type: String,
-      default: ""
+      default: "Recharge"
     },
     lastrecharge: {
       type: Date,
       default: Date.now
+    },
+    amount:{
+      type:Number,
+      default:199
     },
     deadline: {
       type: Date,
@@ -25,6 +29,10 @@ const RechargeSchema = new mongoose.Schema(
     closed: {
       type: Boolean,
       default: false
+    },
+    validity:{
+      type:Number,
+      default:28
     }
   },
   { timestamps: true }
