@@ -15,7 +15,8 @@ import {
   FaTimes,
   FaEye,
   FaCheck,
-  FaExclamationTriangle
+  FaExclamationTriangle,
+  FaTrashAlt
 } from "react-icons/fa";
 import axios from "axios";
 import "./styles/RechargeList.css";
@@ -26,6 +27,8 @@ export default function RechargeList() {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState({
     name: "",
     phone: "",
@@ -54,7 +57,7 @@ export default function RechargeList() {
 
   // Hide/Show body scrollbar
   useEffect(() => {
-    if (showForm) {
+    if (showForm || showDeleteConfirm) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'auto';
@@ -64,7 +67,7 @@ export default function RechargeList() {
     return () => {
       document.body.style.overflow = 'auto';
     };
-  }, [showForm]);
+  }, [showForm, showDeleteConfirm]);
 
   useEffect(() => {
     const savedToken = localStorage.getItem("token");
@@ -85,7 +88,6 @@ export default function RechargeList() {
       });
 
       setRecharges(sorted);
-  const recordsPerPage = 20;
       setDisplayedRecharges(sorted.slice(0, recordsPerPage));
       setCurrentPage(1);
     } catch (err) {
@@ -159,6 +161,37 @@ export default function RechargeList() {
     }
   };
 
+  const handleDeleteClick = (id) => {
+    setDeleteId(id);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteId) return;
+    
+    setLoading(true);
+    try {
+      await axios.delete("/api/recharge/delete", {
+        headers: { Authorization: `Bearer ${token}` },
+        data: { id: deleteId }
+      });
+      
+      showNotification('success', 'Record deleted successfully!');
+      setShowDeleteConfirm(false);
+      setDeleteId(null);
+      fetchRecharges();
+    } catch (err) {
+      showNotification('error', 'Error deleting record: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteConfirm(false);
+    setDeleteId(null);
+  };
+
   const startEdit = (record) => {
     setEditId(record._id);
     setForm({
@@ -201,6 +234,51 @@ export default function RechargeList() {
             >
               <FaTimes />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="form-overlay">
+          <div className="delete-modal">
+            <div className="delete-header">
+              <h2 className="delete-title">
+                <FaTrashAlt className="delete-icon" />
+                Confirm Delete
+              </h2>
+              <button className="close-button" onClick={handleDeleteCancel}>
+                <FaTimes />
+              </button>
+            </div>
+            
+            <div className="delete-content">
+              <div className="delete-warning">
+                <FaExclamationTriangle className="warning-icon" />
+                <p>Are you sure you want to delete this recharge record?</p>
+                <p className="delete-subtext">This action cannot be undone.</p>
+              </div>
+              
+              <div className="delete-actions">
+                <button 
+                  type="button" 
+                  onClick={handleDeleteCancel} 
+                  className="cancel-button"
+                >
+                  <FaTimes />
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteConfirm}
+                  disabled={loading}
+                  className="delete-confirm-button"
+                >
+                  <FaTrashAlt />
+                  {loading ? "Deleting..." : "Delete Record"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -369,6 +447,15 @@ export default function RechargeList() {
                   >
                     <FaEdit />
                   </button>
+                  {record.closed && (
+                    <button
+                      className="delete-button"
+                      onClick={() => handleDeleteClick(record._id)}
+                      title="Delete Record"
+                    >
+                      <FaTrashAlt />
+                    </button>
+                  )}
                 </div>
               </div>
 

@@ -262,6 +262,106 @@
   cursor: not-allowed;
 }
 
+/* Delete Modal Styles */
+.delete-modal {
+  background: linear-gradient(145deg, #1a1a1a, #0d0d0d);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 450px;
+  box-shadow: 
+    0 25px 50px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  animation: slideInModal 0.3s ease-out;
+}
+
+.delete-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 32px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.delete-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+  color: #ef4444;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.delete-icon {
+  color: #ef4444;
+}
+
+.delete-content {
+  padding: 32px;
+}
+
+.delete-warning {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.warning-icon {
+  font-size: 48px;
+  color: #f59e0b;
+  margin-bottom: 16px;
+}
+
+.delete-warning p {
+  font-size: 16px;
+  color: #ffffff;
+  margin: 0 0 8px 0;
+  font-weight: 500;
+}
+
+.delete-subtext {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 400;
+}
+
+.delete-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.delete-confirm-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 140px;
+  justify-content: center;
+}
+
+.delete-confirm-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.delete-confirm-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Records Section */
 .records-section {
   margin-top: 40px;
@@ -415,6 +515,26 @@
 .edit-button:hover {
   background: rgba(59, 130, 246, 0.3);
   border-color: rgba(59, 130, 246, 0.5);
+}
+
+/* Delete Button Styles */
+.delete-button {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.delete-button:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.5);
+  transform: translateY(-1px);
 }
 
 .record-details {
@@ -706,6 +826,15 @@
   .record-header {
     margin-bottom: 12px;
     padding-bottom: 8px;
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  
+  .record-actions {
+    align-self: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
   }
   
   .record-details {
@@ -733,30 +862,6 @@
     font-size: 13px;
   }
   
-  .record-header {
-    margin-bottom: 14px;
-    padding-bottom: 10px;
-  }
-  
-  .record-details {
-    gap: 8px;
-    margin-bottom: 14px;
-  }
-  
-  .record-footer {
-    padding-top: 10px;
-  }
-  
-  .record-header {
-    flex-direction: column;
-    gap: 12px;
-    align-items: flex-start;
-  }
-  
-  .record-actions {
-    align-self: flex-end;
-  }
-  
   .detail-item {
     flex-wrap: wrap;
     gap: 6px;
@@ -775,26 +880,32 @@
     margin-left: 20px;
   }
   
-  .form-modal {
+  .form-modal,
+  .delete-modal {
     margin: 10px;
     max-height: calc(100vh - 20px);
+    max-width: calc(100vw - 20px);
   }
   
-  .recharge-form {
+  .recharge-form,
+  .delete-content {
     padding: 24px;
   }
   
-  .form-header {
+  .form-header,
+  .delete-header {
     padding: 20px 24px;
   }
   
-  .form-actions {
+  .form-actions,
+  .delete-actions {
     flex-direction: column;
     gap: 8px;
   }
   
   .cancel-button,
-  .submit-button {
+  .submit-button,
+  .delete-confirm-button {
     width: 100%;
     justify-content: center;
   }
@@ -831,22 +942,37 @@
     font-size: 14px;
   }
   
-  .form-modal {
+  .form-modal,
+  .delete-modal {
     margin: 5px;
     border-radius: 12px;
   }
   
-  .recharge-form {
+  .recharge-form,
+  .delete-content {
     padding: 20px;
   }
   
-  .form-header {
+  .form-header,
+  .delete-header {
     padding: 16px 20px;
   }
   
   .view-more-button {
     padding: 12px 24px;
     font-size: 14px;
+  }
+  
+  .warning-icon {
+    font-size: 36px;
+  }
+  
+  .delete-warning p {
+    font-size: 15px;
+  }
+  
+  .delete-subtext {
+    font-size: 13px;
   }
 }
 
@@ -882,8 +1008,10 @@ html {
 /* Focus States */
 .add-button:focus,
 .edit-button:focus,
+.delete-button:focus,
 .submit-button:focus,
 .cancel-button:focus,
+.delete-confirm-button:focus,
 .view-more-button:focus {
   outline: 2px solid rgba(74, 222, 128, 0.5);
   outline-offset: 2px;
@@ -917,14 +1045,17 @@ html {
   .record-card,
   .add-button,
   .edit-button,
+  .delete-button,
   .view-more-button,
   .form-modal,
+  .delete-modal,
   .form-overlay {
     animation: none;
     transition: none;
   }
   
-  .record-card:hover {
+  .record-card:hover,
+  .delete-button:hover {
     transform: none;
   }
 }
@@ -938,6 +1069,7 @@ html {
   
   .add-button,
   .edit-button,
+  .delete-button,
   .form-overlay,
   .view-more-button {
     display: none;
