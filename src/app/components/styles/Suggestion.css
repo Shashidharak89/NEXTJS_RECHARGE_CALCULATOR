@@ -1,0 +1,649 @@
+/* Suggestion Component - Dark Theme Styles */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+.suggestion-container {
+  width: 100%;
+  background: #000000;
+  color: #ffffff;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  min-height: auto;
+}
+
+/* Header Styles */
+.suggestion-header {
+  margin-bottom: 20px;
+}
+
+.suggestion-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.suggestion-title-icon {
+  color: #f59e0b;
+  font-size: 16px;
+}
+
+.suggestion-count {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #000000;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 12px;
+  min-width: 20px;
+  text-align: center;
+}
+
+/* Slider Container */
+.suggestion-slider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  position: relative;
+  min-height: 120px;
+  overflow: visible;
+}
+
+/* Suggestion Card Base */
+.suggestion-card {
+  background: linear-gradient(145deg, #1a1a1a, #0d0d0d);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 20px;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+.suggestion-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* Main suggestion card */
+.suggestion-main {
+  width: 100%;
+  max-width: 400px;
+  flex-shrink: 0;
+  transform: scale(1);
+  z-index: 10;
+}
+
+.suggestion-main::before {
+  opacity: 1;
+}
+
+.suggestion-main:hover {
+  transform: scale(1.02);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Today's recharge styling */
+.suggestion-today {
+  background: linear-gradient(145deg, #1a1a0d, #0d0d05);
+  border-color: rgba(245, 158, 11, 0.3);
+  animation: pulse-today 2s ease-in-out infinite;
+}
+
+.suggestion-today::before {
+  background: linear-gradient(90deg, #f59e0b, #eab308, #f59e0b);
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+/* Urgent recharge styling */
+.suggestion-urgent {
+  background: linear-gradient(145deg, #1a0d0d, #0d0505);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.suggestion-urgent::before {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+/* Preview cards (left and right) */
+.suggestion-preview {
+  width: 80px;
+  max-width: 80px;
+  padding: 12px;
+  opacity: 0.6;
+  transform: scale(0.8);
+  flex-shrink: 0;
+  z-index: 5;
+  cursor: pointer;
+}
+
+.suggestion-preview:hover {
+  opacity: 0.8;
+  transform: scale(0.85);
+}
+
+.suggestion-prev {
+  margin-right: -8px;
+}
+
+.suggestion-next {
+  margin-left: -8px;
+}
+
+/* Navigation buttons */
+.suggestion-nav {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: absolute;
+  z-index: 15;
+  backdrop-filter: blur(10px);
+}
+
+.suggestion-nav:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  transform: scale(1.1);
+}
+
+.suggestion-nav-prev {
+  left: -20px;
+}
+
+.suggestion-nav-next {
+  right: -20px;
+}
+
+/* Priority indicator */
+.suggestion-priority-indicator {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 20;
+}
+
+.suggestion-fire {
+  color: #f59e0b;
+  font-size: 18px;
+  animation: flicker 1.5s ease-in-out infinite alternate;
+}
+
+.suggestion-warning {
+  color: #ef4444;
+  font-size: 16px;
+  animation: pulse-warning 1.5s ease-in-out infinite;
+}
+
+/* Card content */
+.suggestion-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  z-index: 10;
+}
+
+.suggestion-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.suggestion-name-section,
+.suggestion-phone-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.suggestion-icon {
+  color: #4ade80;
+  font-size: 12px;
+  min-width: 12px;
+}
+
+.suggestion-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.suggestion-phone {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.suggestion-deadline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.suggestion-deadline-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.suggestion-deadline-icon {
+  color: #f59e0b;
+  font-size: 12px;
+}
+
+.suggestion-deadline-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.suggestion-days {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.suggestion-date {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.suggestion-amount {
+  font-size: 16px;
+  font-weight: 700;
+  color: #4ade80;
+}
+
+/* Progress indicator */
+.suggestion-progress {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.suggestion-progress-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.suggestion-progress-dot.active {
+  background: #f59e0b;
+  transform: scale(1.3);
+}
+
+.suggestion-progress-dot:hover {
+  background: rgba(255, 255, 255, 0.5);
+  transform: scale(1.2);
+}
+
+/* Preview card specific styles */
+.suggestion-preview .suggestion-card-content {
+  gap: 4px;
+  align-items: center;
+  text-align: center;
+}
+
+.suggestion-preview .suggestion-name {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.suggestion-preview .suggestion-phone {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.suggestion-preview .suggestion-deadline,
+.suggestion-preview .suggestion-progress,
+.suggestion-preview .suggestion-info {
+  display: none;
+}
+
+/* Animations */
+@keyframes pulse-today {
+  0%, 100% {
+    box-shadow: 
+      0 4px 20px rgba(0, 0, 0, 0.3),
+      0 0 0 0 rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    box-shadow: 
+      0 4px 20px rgba(0, 0, 0, 0.3),
+      0 0 0 4px rgba(245, 158, 11, 0.2);
+  }
+}
+
+@keyframes pulse-warning {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes flicker {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  25% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(0.95);
+  }
+  75% {
+    opacity: 0.9;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background: linear-gradient(90deg, #f59e0b, #eab308, #f59e0b);
+  }
+  50% {
+    background: linear-gradient(90deg, #eab308, #f59e0b, #eab308);
+  }
+  100% {
+    background: linear-gradient(90deg, #f59e0b, #eab308, #f59e0b);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.suggestion-main {
+  animation: slideIn 0.5s ease-out;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .suggestion-container {
+    padding: 16px 20px;
+  }
+  
+  .suggestion-slider {
+    gap: 12px;
+    min-height: 100px;
+  }
+  
+  .suggestion-main {
+    max-width: 320px;
+    padding: 16px;
+  }
+  
+  .suggestion-preview {
+    width: 60px;
+    max-width: 60px;
+    padding: 8px;
+  }
+  
+  .suggestion-nav {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .suggestion-nav-prev {
+    left: -18px;
+  }
+  
+  .suggestion-nav-next {
+    right: -18px;
+  }
+  
+  .suggestion-name {
+    font-size: 15px;
+  }
+  
+  .suggestion-phone {
+    font-size: 13px;
+  }
+  
+  .suggestion-days {
+    font-size: 13px;
+  }
+  
+  .suggestion-amount {
+    font-size: 15px;
+  }
+  
+  .suggestion-title {
+    font-size: 16px;
+  }
+  
+  .suggestion-preview .suggestion-name {
+    font-size: 10px;
+  }
+  
+  .suggestion-preview .suggestion-phone {
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 480px) {
+  .suggestion-container {
+    padding: 12px 16px;
+  }
+  
+  .suggestion-slider {
+    gap: 8px;
+    min-height: 90px;
+  }
+  
+  .suggestion-main {
+    max-width: 280px;
+    padding: 14px;
+  }
+  
+  .suggestion-preview {
+    width: 50px;
+    max-width: 50px;
+    padding: 6px;
+  }
+  
+  .suggestion-nav {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
+  
+  .suggestion-nav-prev {
+    left: -16px;
+  }
+  
+  .suggestion-nav-next {
+    right: -16px;
+  }
+  
+  .suggestion-card-content {
+    gap: 12px;
+  }
+  
+  .suggestion-info {
+    gap: 6px;
+  }
+  
+  .suggestion-deadline {
+    padding-top: 8px;
+  }
+  
+  .suggestion-progress {
+    margin-top: 12px;
+    padding-top: 8px;
+  }
+  
+  .suggestion-progress-dot {
+    width: 5px;
+    height: 5px;
+  }
+  
+  .suggestion-title {
+    font-size: 15px;
+  }
+  
+  .suggestion-count {
+    font-size: 11px;
+    padding: 3px 6px;
+  }
+}
+
+@media (max-width: 360px) {
+  .suggestion-container {
+    padding: 10px 12px;
+  }
+  
+  .suggestion-main {
+    max-width: 250px;
+    padding: 12px;
+  }
+  
+  .suggestion-preview {
+    display: none;
+  }
+  
+  .suggestion-nav {
+    width: 28px;
+    height: 28px;
+    font-size: 10px;
+  }
+  
+  .suggestion-nav-prev {
+    left: -14px;
+  }
+  
+  .suggestion-nav-next {
+    right: -14px;
+  }
+  
+  .suggestion-name {
+    font-size: 14px;
+  }
+  
+  .suggestion-phone {
+    font-size: 12px;
+  }
+  
+  .suggestion-days {
+    font-size: 12px;
+  }
+  
+  .suggestion-amount {
+    font-size: 14px;
+  }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .suggestion-card {
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+  
+  .suggestion-today {
+    background: rgba(245, 158, 11, 0.1);
+  }
+  
+  .suggestion-urgent {
+    background: rgba(239, 68, 68, 0.1);
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .suggestion-card,
+  .suggestion-nav,
+  .suggestion-progress-dot,
+  .suggestion-main {
+    animation: none;
+    transition: none;
+  }
+  
+  .suggestion-main:hover,
+  .suggestion-preview:hover,
+  .suggestion-nav:hover {
+    transform: none;
+  }
+  
+  .suggestion-fire,
+  .suggestion-warning {
+    animation: none;
+  }
+}
+
+/* Focus States for Accessibility */
+.suggestion-nav:focus,
+.suggestion-progress-dot:focus,
+.suggestion-card:focus {
+  outline: 2px solid rgba(245, 158, 11, 0.5);
+  outline-offset: 2px;
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  .suggestion-preview {
+    opacity: 0.8;
+  }
+  
+  .suggestion-nav {
+    width: 44px;
+    height: 44px;
+  }
+  
+  .suggestion-progress-dot {
+    width: 8px;
+    height: 8px;
+  }
+}

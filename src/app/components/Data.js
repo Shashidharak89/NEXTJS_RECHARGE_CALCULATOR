@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import "./styles/Data.css";
 import RechargeList from "./RechargeList";
+import Suggestion from "./Suggestion";
 
 const Data = () => {
     const { isLogin } = useUser();
@@ -84,6 +85,7 @@ const Data = () => {
                         <p className="card-description">View your data and insights</p>
                     </div>
                 </div> */}
+                <Suggestion/>
                 <RechargeList/>
             </div>
         </div>
