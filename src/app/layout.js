@@ -8,16 +8,16 @@ export const metadata = {
     process.env.NEXT_PUBLIC_SITE_URL || 'https://gamenexplay.live'
   ),
   title: {
-    default: 'GameNexPlay',
-    template: '%s | GameNexPlay',
+    default: 'Recharge-Data',
+    template: '%s | Recharge-Data',
   },
   description:
-    'GameNexPlay – Play free games, earn daily rewards, coins, and compete in tournaments. Join our community and level up your gamer score!',
+    'Recharge-Data is a website used to store recharge details and remember the date and it also calculates the next reacharge date and reminds us',
   keywords: [
     'GNP',
     'gnp',
-    'gamenexplay.live',
-    'gamenexplay',
+    'recharge',
+    'Recharge-data',
     'gnplay',
   ],
   authors: [
