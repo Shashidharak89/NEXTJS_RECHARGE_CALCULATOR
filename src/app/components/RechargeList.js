@@ -536,6 +536,7 @@ export default function EnhancedRechargeList() {
           </div>
         </div>
       )}
+      
 
       <div className="enhanced-records-section">
         <div className="enhanced-records-header">
