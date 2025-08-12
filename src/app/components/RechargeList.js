@@ -413,7 +413,7 @@ export default function EnhancedRechargeList() {
             </span>
             {searchQuery && (
               <span className="enhanced-search-query">
-                for "{searchQuery}"
+                for {searchQuery}
               </span>
             )}
           </div>
