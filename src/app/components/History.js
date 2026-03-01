@@ -271,19 +271,12 @@ export default function History() {
       {/* Search & Filter */}
       <div className="history-controls">
         <div className="history-search-container">
-          <div className="history-search-input-wrapper">
-            <button
-              className="history-search-icon-btn"
-              onClick={submitSearch}
-              title="Search"
-              aria-label="Submit search"
-            >
-              <FaSearch className="history-search-icon" />
-            </button>
+          <div className={`history-search-input-wrapper${inputQuery ? " history-search-input-wrapper--typing" : ""}`}>
+            <FaSearch className="history-search-icon-left" />
             <input
               type="text"
               className="history-search-input"
-              placeholder="Type and press the search icon…"
+              placeholder="Search and hit Enter or → icon"
               value={inputQuery}
               onChange={(e) => setInputQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && submitSearch()}
@@ -293,6 +286,15 @@ export default function History() {
                 <FaTimes />
               </button>
             )}
+            <button
+              className="history-search-icon-btn"
+              onClick={submitSearch}
+              title="Click to search"
+              aria-label="Submit search"
+            >
+              <FaSearch />
+              <span className="history-search-btn-label">Search</span>
+            </button>
           </div>
           <FaFilter className="history-filter-icon" />
         </div>

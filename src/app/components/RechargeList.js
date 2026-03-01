@@ -367,15 +367,8 @@ export default function EnhancedRechargeList() {
       {/* Search Bar */}
       <div className="enhanced-search-section">
         <div className={`enhanced-search-container ${searchFocused ? "enhanced-search-focused" : ""}`}>
-          <div className="enhanced-search-input-wrapper">
-            <button
-              type="button"
-              className="history-search-icon-btn"
-              onClick={handleSearchSubmit}
-              title="Search"
-            >
-              <FaSearch className="enhanced-search-icon" />
-            </button>
+          <div className={`enhanced-search-input-wrapper${inputQuery ? " enhanced-search-input-wrapper--typing" : ""}`}>
+            <FaSearch className="enhanced-search-icon-left" />
             <input
               type="text"
               placeholder="Search by name, phone, amount, date, reason, status..."
@@ -386,11 +379,20 @@ export default function EnhancedRechargeList() {
               onBlur={() => setSearchFocused(false)}
               className="enhanced-search-input"
             />
-            {inputQuery && (
+            {urlSearch && (
               <button onClick={clearSearch} className="enhanced-search-clear" type="button">
                 <FaTimes />
               </button>
             )}
+            <button
+              type="button"
+              className="enhanced-search-submit-btn"
+              onClick={handleSearchSubmit}
+              title="Click to search"
+            >
+              <FaSearch />
+              <span className="enhanced-search-btn-label">Search</span>
+            </button>
           </div>
           <div className="enhanced-search-filter-icon">
             <FaFilter />
