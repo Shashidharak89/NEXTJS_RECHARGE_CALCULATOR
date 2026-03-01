@@ -1,5 +1,6 @@
 import dbConnect from "lib/dbConnect.js";
 import Recharge from "models/RechargeModel.js";
+import History from "models/HistoryModel.js";
 import { verifyToken } from "lib/verifyToken.js";
 
 export async function POST(req) {
@@ -49,6 +50,32 @@ export async function POST(req) {
       closed: false,
       paid:false
     });
+
+    // Log history
+    try {
+      await History.create({
+        action: "CREATE",
+        recordType: "Recharge",
+        recordId: recharge._id,
+        userId: decoded.userId || decoded.id || "unknown",
+        userName: decoded.name || decoded.email || "Unknown User",
+        logMessage: `Created new recharge record for ${recharge.name}`,
+        recordSnapshot: recharge.toObject(),
+        newValues: {
+          name: recharge.name,
+          phone: recharge.phone,
+          reason: recharge.reason,
+          lastrecharge: recharge.lastrecharge,
+          amount: recharge.amount,
+          validity: recharge.validity,
+          deadline: recharge.deadline,
+          closed: recharge.closed,
+          paid: recharge.paid
+        }
+      });
+    } catch (historyErr) {
+      console.error("Failed to log history:", historyErr);
+    }
 
     return Response.json(
       { message: "Recharge record created successfully", recharge },

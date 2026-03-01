@@ -6,10 +6,13 @@ import Link from "next/link";
 import "./styles/Data.css";
 import RechargeList from "./RechargeList";
 import Suggestion from "./Suggestion";
+import History from "./History";
+import { FaList, FaHistory } from "react-icons/fa";
 
 const Data = () => {
     const { isLogin } = useUser();
     const [isLoading, setIsLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState("records");
 
     useEffect(() => {
         // Simulate checking authentication status
@@ -70,23 +73,33 @@ const Data = () => {
                         You are successfully logged in. Here is your personalized homepage.
                     </p>
                 </header>
-                
-                {/* <div className="content-grid">
-                    <div className="content-card">
-                        <h3 className="card-title">Recent Activity</h3>
-                        <p className="card-description">Your latest actions and updates</p>
-                    </div>
-                    <div className="content-card">
-                        <h3 className="card-title">Quick Actions</h3>
-                        <p className="card-description">Frequently used features and tools</p>
-                    </div>
-                    <div className="content-card">
-                        <h3 className="card-title">Analytics</h3>
-                        <p className="card-description">View your data and insights</p>
-                    </div>
-                </div> */}
-                <Suggestion/>
-                <RechargeList/>
+
+                {/* Tab Navigation */}
+                <div className="data-tab-nav">
+                    <button
+                        className={`data-tab-btn ${activeTab === "records" ? "data-tab-active" : ""}`}
+                        onClick={() => setActiveTab("records")}
+                    >
+                        <FaList className="data-tab-icon" />
+                        Records
+                    </button>
+                    <button
+                        className={`data-tab-btn data-tab-history ${activeTab === "history" ? "data-tab-active data-tab-history-active" : ""}`}
+                        onClick={() => setActiveTab("history")}
+                    >
+                        <FaHistory className="data-tab-icon" />
+                        History
+                    </button>
+                </div>
+
+                {activeTab === "records" ? (
+                    <>
+                        <Suggestion />
+                        <RechargeList />
+                    </>
+                ) : (
+                    <History />
+                )}
             </div>
         </div>
     );
