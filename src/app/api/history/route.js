@@ -40,3 +40,33 @@ export async function GET(req) {
     return Response.json({ error: err.message }, { status: 500 });
   }
 }
+
+export async function DELETE(req) {
+  await dbConnect();
+
+  let decoded;
+  try {
+    decoded = verifyToken(req);
+  } catch (err) {
+    return Response.json({ error: err.message }, { status: 401 });
+  }
+
+  try {
+    const body = await req.json();
+    const { id } = body;
+
+    if (!id) {
+      return Response.json({ error: "History entry ID is required" }, { status: 400 });
+    }
+
+    const deleted = await History.findByIdAndDelete(id);
+
+    if (!deleted) {
+      return Response.json({ error: "History entry not found" }, { status: 404 });
+    }
+
+    return Response.json({ message: "History entry deleted successfully" }, { status: 200 });
+  } catch (err) {
+    return Response.json({ error: err.message }, { status: 500 });
+  }
+}

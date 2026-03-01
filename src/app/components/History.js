@@ -46,13 +46,17 @@ const ACTION_CONFIG = {
 
 function formatDateTime(dateStr) {
   const date = new Date(dateStr);
-  return date.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
+  const time = date.toLocaleTimeString(undefined, {
     hour: "2-digit",
     minute: "2-digit",
+    hour12: true,
   });
+  const day = date.toLocaleDateString(undefined, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+  return `${time}, ${day}`;
 }
 
 function timeAgo(dateStr) {
@@ -84,6 +88,24 @@ export default function History() {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  };
+
+  const deleteEntry = async (id, e) => {
+    e.stopPropagation();
+    try {
+      await axios.delete("/api/history", {
+        headers: { Authorization: `Bearer ${token}` },
+        data: { id },
+      });
+      setHistory((prev) => prev.filter((h) => h._id !== id));
+      setExpandedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    } catch (err) {
+      console.error("Failed to delete history entry:", err);
+    }
   };
 
   useEffect(() => {
@@ -339,14 +361,24 @@ export default function History() {
 
                       {/* Footer */}
                       <div className="history-card-footer">
-                        <div className="history-card-user">
-                          <FaUser className="history-user-icon" />
-                          <span>{entry.userName || "Unknown User"}</span>
+                        <div className="history-footer-left">
+                          <div className="history-card-user">
+                            <FaUser className="history-user-icon" />
+                            <span>{entry.userName || "Unknown User"}</span>
+                          </div>
+                          <div className="history-card-date">
+                            <FaCalendarAlt className="history-date-icon" />
+                            <span>{formatDateTime(entry.createdAt)}</span>
+                          </div>
                         </div>
-                        <div className="history-card-date">
-                          <FaCalendarAlt className="history-date-icon" />
-                          <span>{formatDateTime(entry.createdAt)}</span>
-                        </div>
+                        <button
+                          className="history-delete-entry-btn"
+                          onClick={(e) => deleteEntry(entry._id, e)}
+                          title="Delete this history log"
+                        >
+                          <FaTrashAlt />
+                          Delete Log
+                        </button>
                       </div>
                     </div>
                   )}
