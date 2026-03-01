@@ -157,6 +157,7 @@
   opacity: 1;
 }
 
+/* outer row: animated zone + clear btn sit side by side */
 .history-search-input-wrapper {
   display: flex;
   align-items: center;
@@ -164,85 +165,65 @@
   flex: 1;
 }
 
-/* decorative left icon — fades out when typing starts */
-.history-search-icon-left {
-  color: rgba(167, 139, 250, 0.5);
-  font-size: 15px;
-  flex-shrink: 0;
-  transition: opacity 0.35s ease, transform 0.35s ease;
-  opacity: 1;
-  transform: translateX(0);
-  pointer-events: none;
+/* clipping zone where the icon slides inside */
+.history-search-input-zone {
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  height: 100%;
 }
 
-.history-search-input-wrapper--typing .history-search-icon-left {
-  opacity: 0;
-  transform: translateX(-10px);
-}
-
-/* search submit button — in-flow on the right */
+/* submit / search icon — starts on the LEFT */
 .history-search-icon-btn {
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(167, 139, 250, 0.35);
+  background: rgba(167, 139, 250, 0.08);
+  color: rgba(167, 139, 250, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  flex-shrink: 0;
-  padding: 5px 10px;
-  border-radius: 20px;
-  border: 1px solid rgba(167, 139, 250, 0.2);
-  background: transparent;
-  color: rgba(167, 139, 250, 0.35);
   font-size: 13px;
-  cursor: pointer;
-  white-space: nowrap;
-  opacity: 0.45;
-  transform: translateX(6px);
+  cursor: not-allowed;
+  z-index: 2;
   transition:
-    opacity 0.35s ease,
-    transform 0.35s ease,
-    background 0.2s,
-    border-color 0.2s,
-    color 0.2s,
-    box-shadow 0.2s;
+    left 0.42s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.25s ease,
+    background 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
 }
 
-/* label text inside button — hidden when not typing */
-.history-search-icon-btn .history-search-btn-label {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  max-width: 0;
-  overflow: hidden;
-  opacity: 0;
-  transition: max-width 0.35s ease, opacity 0.3s ease;
-}
-
-/* when typing — submit button comes alive */
-.history-search-input-wrapper--typing .history-search-icon-btn {
-  opacity: 1;
-  transform: translateX(0);
-  background: rgba(167, 139, 250, 0.12);
-  border-color: rgba(167, 139, 250, 0.45);
+/* TYPING STATE — icon slides to the right and becomes active */
+.history-search-input-zone--typing .history-search-icon-btn {
+  left: calc(100% - 38px);
   color: #a78bfa;
-  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.15);
+  background: rgba(167, 139, 250, 0.15);
+  border-color: rgba(167, 139, 250, 0.55);
+  cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.12);
 }
 
-.history-search-input-wrapper--typing .history-search-icon-btn .history-search-btn-label {
-  max-width: 60px;
-  opacity: 1;
+.history-search-input-zone--typing .history-search-icon-btn:hover {
+  background: rgba(167, 139, 250, 0.28);
+  border-color: #a78bfa;
+  box-shadow: 0 0 10px rgba(167, 139, 250, 0.35);
+  color: #c4b5fd;
 }
 
-.history-search-icon-btn:hover {
-  background: rgba(167, 139, 250, 0.25) !important;
-  border-color: rgba(167, 139, 250, 0.6) !important;
-  color: #c4b5fd !important;
-  box-shadow: 0 0 10px rgba(167, 139, 250, 0.3) !important;
-}
-.history-search-icon-btn:active {
-  background: rgba(167, 139, 250, 0.35) !important;
-  transform: scale(0.97) !important;
+.history-search-input-zone--typing .history-search-icon-btn:active {
+  background: rgba(167, 139, 250, 0.38);
+  transform: translateY(-50%) scale(0.92);
 }
 
+/* input — padding shifts as icon moves */
 .history-search-input {
   flex: 1;
   background: transparent;
@@ -253,7 +234,17 @@
   font-weight: 500;
   font-family: inherit;
   min-width: 0;
+  padding-left: 44px;
+  padding-right: 8px;
+  transition: padding-left 0.42s cubic-bezier(0.4, 0, 0.2, 1),
+              padding-right 0.42s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+.history-search-input-zone--typing .history-search-input {
+  padding-left: 8px;
+  padding-right: 46px;
+}
+
 
 .history-search-input::placeholder {
   color: rgba(255, 255, 255, 0.4);

@@ -367,32 +367,33 @@ export default function EnhancedRechargeList() {
       {/* Search Bar */}
       <div className="enhanced-search-section">
         <div className={`enhanced-search-container ${searchFocused ? "enhanced-search-focused" : ""}`}>
-          <div className={`enhanced-search-input-wrapper${inputQuery ? " enhanced-search-input-wrapper--typing" : ""}`}>
-            <FaSearch className="enhanced-search-icon-left" />
-            <input
-              type="text"
-              placeholder="Search by name, phone, amount, date, reason, status..."
-              value={inputQuery}
-              onChange={(e) => setInputQuery(e.target.value)}
-              onKeyDown={handleSearchKeyDown}
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
-              className="enhanced-search-input"
-            />
+          <div className="enhanced-search-input-wrapper">
+            <div className={`enhanced-search-input-zone${inputQuery ? " enhanced-search-input-zone--typing" : ""}`}>
+              <button
+                type="button"
+                className="enhanced-search-submit-btn"
+                onClick={handleSearchSubmit}
+                disabled={!inputQuery.trim()}
+                title="Click to search"
+              >
+                <FaSearch />
+              </button>
+              <input
+                type="text"
+                placeholder="Type to search… then hit Enter or →"
+                value={inputQuery}
+                onChange={(e) => setInputQuery(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
+                className="enhanced-search-input"
+              />
+            </div>
             {urlSearch && (
               <button onClick={clearSearch} className="enhanced-search-clear" type="button">
                 <FaTimes />
               </button>
             )}
-            <button
-              type="button"
-              className="enhanced-search-submit-btn"
-              onClick={handleSearchSubmit}
-              title="Click to search"
-            >
-              <FaSearch />
-              <span className="enhanced-search-btn-label">Search</span>
-            </button>
           </div>
           <div className="enhanced-search-filter-icon">
             <FaFilter />

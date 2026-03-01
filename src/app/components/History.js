@@ -271,30 +271,31 @@ export default function History() {
       {/* Search & Filter */}
       <div className="history-controls">
         <div className="history-search-container">
-          <div className={`history-search-input-wrapper${inputQuery ? " history-search-input-wrapper--typing" : ""}`}>
-            <FaSearch className="history-search-icon-left" />
-            <input
-              type="text"
-              className="history-search-input"
-              placeholder="Search and hit Enter or → icon"
-              value={inputQuery}
-              onChange={(e) => setInputQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && submitSearch()}
-            />
+          <div className="history-search-input-wrapper">
+            <div className={`history-search-input-zone${inputQuery ? " history-search-input-zone--typing" : ""}`}>
+              <button
+                className="history-search-icon-btn"
+                onClick={submitSearch}
+                disabled={!inputQuery.trim()}
+                title="Click to search"
+                aria-label="Submit search"
+              >
+                <FaSearch />
+              </button>
+              <input
+                type="text"
+                className="history-search-input"
+                placeholder="Type to search… then hit Enter or →"
+                value={inputQuery}
+                onChange={(e) => setInputQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && submitSearch()}
+              />
+            </div>
             {urlSearch && (
               <button className="history-search-clear" onClick={clearSearch} title="Clear">
                 <FaTimes />
               </button>
             )}
-            <button
-              className="history-search-icon-btn"
-              onClick={submitSearch}
-              title="Click to search"
-              aria-label="Submit search"
-            >
-              <FaSearch />
-              <span className="history-search-btn-label">Search</span>
-            </button>
           </div>
           <FaFilter className="history-filter-icon" />
         </div>

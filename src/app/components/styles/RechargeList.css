@@ -121,6 +121,7 @@
   opacity: 1;
 }
 
+/* outer row: animated zone + clear btn sit side by side */
 .enhanced-search-input-wrapper {
   display: flex;
   align-items: center;
@@ -128,85 +129,65 @@
   flex: 1;
 }
 
-/* decorative left icon — fades out when typing starts */
-.enhanced-search-icon-left {
-  color: rgba(74, 222, 128, 0.5);
-  font-size: 15px;
-  flex-shrink: 0;
-  transition: opacity 0.35s ease, transform 0.35s ease;
-  opacity: 1;
-  transform: translateX(0);
-  pointer-events: none;
+/* clipping zone where the icon slides inside */
+.enhanced-search-input-zone {
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  height: 100%;
 }
 
-.enhanced-search-input-wrapper--typing .enhanced-search-icon-left {
-  opacity: 0;
-  transform: translateX(-10px);
-}
-
-/* search submit button — in-flow on the right */
+/* submit / search icon — starts on the LEFT */
 .enhanced-search-submit-btn {
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(74, 222, 128, 0.3);
+  background: rgba(74, 222, 128, 0.07);
+  color: rgba(74, 222, 128, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  flex-shrink: 0;
-  padding: 5px 10px;
-  border-radius: 20px;
-  border: 1px solid rgba(74, 222, 128, 0.2);
-  background: transparent;
-  color: rgba(74, 222, 128, 0.35);
   font-size: 13px;
-  cursor: pointer;
-  white-space: nowrap;
-  opacity: 0.45;
-  transform: translateX(6px);
+  cursor: not-allowed;
+  z-index: 2;
   transition:
-    opacity 0.35s ease,
-    transform 0.35s ease,
-    background 0.2s,
-    border-color 0.2s,
-    color 0.2s,
-    box-shadow 0.2s;
+    left 0.42s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.25s ease,
+    background 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
 }
 
-/* label text inside button — hidden when not typing */
-.enhanced-search-submit-btn .enhanced-search-btn-label {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  max-width: 0;
-  overflow: hidden;
-  opacity: 0;
-  transition: max-width 0.35s ease, opacity 0.3s ease;
-}
-
-/* when typing — submit button comes alive */
-.enhanced-search-input-wrapper--typing .enhanced-search-submit-btn {
-  opacity: 1;
-  transform: translateX(0);
-  background: rgba(74, 222, 128, 0.1);
-  border-color: rgba(74, 222, 128, 0.45);
+/* TYPING STATE — icon slides to the right and becomes active */
+.enhanced-search-input-zone--typing .enhanced-search-submit-btn {
+  left: calc(100% - 38px);
   color: #4ade80;
-  box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.15);
+  background: rgba(74, 222, 128, 0.12);
+  border-color: rgba(74, 222, 128, 0.55);
+  cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.1);
 }
 
-.enhanced-search-input-wrapper--typing .enhanced-search-submit-btn .enhanced-search-btn-label {
-  max-width: 60px;
-  opacity: 1;
+.enhanced-search-input-zone--typing .enhanced-search-submit-btn:hover {
+  background: rgba(74, 222, 128, 0.25);
+  border-color: #4ade80;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.3);
+  color: #86efac;
 }
 
-.enhanced-search-submit-btn:hover {
-  background: rgba(74, 222, 128, 0.22) !important;
-  border-color: rgba(74, 222, 128, 0.6) !important;
-  color: #86efac !important;
-  box-shadow: 0 0 10px rgba(74, 222, 128, 0.25) !important;
-}
-.enhanced-search-submit-btn:active {
-  background: rgba(74, 222, 128, 0.32) !important;
-  transform: scale(0.97) !important;
+.enhanced-search-input-zone--typing .enhanced-search-submit-btn:active {
+  background: rgba(74, 222, 128, 0.35);
+  transform: translateY(-50%) scale(0.92);
 }
 
+/* input — padding shifts as icon moves */
 .enhanced-search-input {
   flex: 1;
   background: transparent;
@@ -218,7 +199,17 @@
   font-family: inherit;
   line-height: 1.4;
   min-width: 0;
+  padding-left: 44px;
+  padding-right: 8px;
+  transition: padding-left 0.42s cubic-bezier(0.4, 0, 0.2, 1),
+              padding-right 0.42s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+.enhanced-search-input-zone--typing .enhanced-search-input {
+  padding-left: 8px;
+  padding-right: 46px;
+}
+
 
 .enhanced-search-input::placeholder {
   color: rgba(255, 255, 255, 0.4);
