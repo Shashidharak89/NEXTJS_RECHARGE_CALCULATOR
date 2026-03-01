@@ -2,6 +2,7 @@
 
 import { useUser } from "context/UserContext";
 import { useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import "./styles/Data.css";
 import RechargeList from "./RechargeList";
@@ -12,7 +13,11 @@ import { FaList, FaHistory } from "react-icons/fa";
 const Data = () => {
     const { isLogin } = useUser();
     const [isLoading, setIsLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState("records");
+    const searchParams = useSearchParams();
+    const router = useRouter();
+    const [activeTab, setActiveTab] = useState(
+        searchParams.get("tab") === "history" ? "history" : "records"
+    );
 
     useEffect(() => {
         // Simulate checking authentication status
@@ -78,14 +83,24 @@ const Data = () => {
                 <div className="data-tab-nav">
                     <button
                         className={`data-tab-btn ${activeTab === "records" ? "data-tab-active" : ""}`}
-                        onClick={() => setActiveTab("records")}
+                        onClick={() => {
+                            setActiveTab("records");
+                            const p = new URLSearchParams(searchParams.toString());
+                            p.set("tab", "records");
+                            router.replace(`?${p.toString()}`, { scroll: false });
+                        }}
                     >
                         <FaList className="data-tab-icon" />
                         Records
                     </button>
                     <button
                         className={`data-tab-btn data-tab-history ${activeTab === "history" ? "data-tab-active data-tab-history-active" : ""}`}
-                        onClick={() => setActiveTab("history")}
+                        onClick={() => {
+                            setActiveTab("history");
+                            const p = new URLSearchParams(searchParams.toString());
+                            p.set("tab", "history");
+                            router.replace(`?${p.toString()}`, { scroll: false });
+                        }}
                     >
                         <FaHistory className="data-tab-icon" />
                         History
