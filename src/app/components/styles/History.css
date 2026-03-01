@@ -350,6 +350,10 @@
   background: linear-gradient(90deg, #ef4444, #dc2626);
 }
 
+.history-card-rtd::before {
+  background: linear-gradient(90deg, #fbbf24, #f59e0b);
+}
+
 .history-card:hover {
   transform: translateY(-3px);
   border-color: rgba(255, 255, 255, 0.15);
@@ -378,6 +382,72 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* Collapsible summary row */
+.history-card-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+  border-radius: 8px;
+  padding: 2px 0;
+  transition: opacity 0.15s;
+}
+
+.history-card-summary:hover {
+  opacity: 0.9;
+}
+
+.history-card-summary-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.history-summary-log {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.45;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-card-summary-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.history-chevron {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  transition: transform 0.25s ease;
+}
+
+.history-chevron-open {
+  transform: rotate(180deg);
+}
+
+/* Expanded detail section */
+.history-card-detail {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  animation: history-fade-in 0.2s ease-out;
+}
+
+.history-detail-row {
+  margin-bottom: 10px;
 }
 
 /* Action badge */
@@ -409,6 +479,12 @@
   background: rgba(239, 68, 68, 0.12);
   border: 1px solid rgba(239, 68, 68, 0.35);
   color: #ef4444;
+}
+
+.history-badge-rtd {
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  color: #fbbf24;
 }
 
 .history-record-type {

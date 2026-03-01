@@ -19,7 +19,8 @@ import {
   FaTrashAlt,
   FaCoins,
   FaSearch,
-  FaFilter
+  FaFilter,
+  FaBolt
 } from "react-icons/fa";
 import axios from "axios";
 import "./styles/RechargeList.css";
@@ -290,6 +291,21 @@ export default function EnhancedRechargeList() {
 
   const clearSearch = () => {
     setSearchQuery("");
+  };
+
+  const handleRTD = async (record) => {
+    const today = new Date().toISOString().split("T")[0];
+    try {
+      await axios.put(
+        "/api/recharge/update",
+        { id: record._id, lastrecharge: today, paid: false, rtd: true },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      showNotification('success', `RTD updated for ${record.name}!`);
+      fetchRecharges();
+    } catch (err) {
+      showNotification('error', 'RTD failed: ' + (err.response?.data?.error || err.message));
+    }
   };
 
   return (
@@ -565,6 +581,16 @@ export default function EnhancedRechargeList() {
                     <FaCoins />
                     {record.paid ? 'Paid' : 'Unpaid'}
                   </div>
+                  {!record.closed && (
+                    <button
+                      className="enhanced-rtd-button"
+                      onClick={() => handleRTD(record)}
+                      title="Recharge Today — sets last recharge to today & marks unpaid"
+                    >
+                      <FaBolt />
+                      RTD
+                    </button>
+                  )}
                   <button
                     className="enhanced-edit-button"
                     onClick={() => startEdit(record)}

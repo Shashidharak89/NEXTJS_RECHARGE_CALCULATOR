@@ -15,6 +15,8 @@ import {
   FaInfoCircle,
   FaSyncAlt,
   FaArrowRight,
+  FaChevronDown,
+  FaBolt,
 } from "react-icons/fa";
 import axios from "axios";
 import "./styles/History.css";
@@ -29,6 +31,11 @@ const ACTION_CONFIG = {
     label: "Updated",
     icon: <FaEdit />,
     className: "history-badge-update",
+  },
+  RTD: {
+    label: "Recharge Today",
+    icon: <FaBolt />,
+    className: "history-badge-rtd",
   },
   DELETE: {
     label: "Deleted",
@@ -69,6 +76,15 @@ export default function History() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [filterAction, setFilterAction] = useState("ALL");
   const [displayCount, setDisplayCount] = useState(20);
+  const [expandedIds, setExpandedIds] = useState(new Set());
+
+  const toggleExpand = (id) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   useEffect(() => {
     const savedToken = localStorage.getItem("token");
@@ -251,75 +267,89 @@ export default function History() {
         ) : (
           <div className="history-timeline">
             {displayed.map((entry, index) => {
-              const cfg = ACTION_CONFIG[entry.action] || ACTION_CONFIG.UPDATE;
-              const hasChanges =
-                entry.changedFields && entry.changedFields.length > 0;
+              const isRTD = entry.action === "UPDATE" && entry.logMessage?.includes(" has done ");
+              const displayAction = isRTD ? "RTD" : entry.action;
+              const cfg = ACTION_CONFIG[displayAction] || ACTION_CONFIG.UPDATE;
+              const hasChanges = entry.changedFields && entry.changedFields.length > 0;
+              const isExpanded = expandedIds.has(entry._id);
 
               return (
-                <div key={entry._id} className={`history-card history-card-${entry.action?.toLowerCase()}`}>
-                  {/* Card Header */}
-                  <div className="history-card-header">
-                    <div className="history-card-left">
+                <div
+                  key={entry._id}
+                  className={`history-card history-card-${isRTD ? "rtd" : entry.action?.toLowerCase()}`}
+                >
+                  {/* Clickable summary row */}
+                  <div
+                    className="history-card-summary"
+                    onClick={() => toggleExpand(entry._id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === "Enter" && toggleExpand(entry._id)}
+                  >
+                    <div className="history-card-summary-left">
                       <span className={`history-action-badge ${cfg.className}`}>
                         {cfg.icon}
                         {cfg.label}
                       </span>
-                      <span className="history-record-type">{entry.recordType}</span>
+                      <p className="history-summary-log">{entry.logMessage}</p>
                     </div>
-                    <div className="history-card-right">
+                    <div className="history-card-summary-right">
                       <span className="history-time-ago" title={formatDateTime(entry.createdAt)}>
                         <FaClock className="history-time-icon" />
                         {timeAgo(entry.createdAt)}
                       </span>
+                      <FaChevronDown
+                        className={`history-chevron ${isExpanded ? "history-chevron-open" : ""}`}
+                      />
                     </div>
                   </div>
 
-                  {/* Log Message */}
-                  <div className="history-log-message">
-                    <FaInfoCircle className="history-log-icon" />
-                    <p>{entry.logMessage}</p>
-                  </div>
+                  {/* Expanded detail section */}
+                  {isExpanded && (
+                    <div className="history-card-detail">
+                      {/* Record type row */}
+                      <div className="history-detail-row">
+                        <span className="history-record-type">{entry.recordType}</span>
+                      </div>
 
-                  {/* Changed Fields — only for UPDATE */}
-                  {entry.action === "UPDATE" && hasChanges && (
-                    <div className="history-changes-section">
-                      <div className="history-changes-title">Changes:</div>
-                      <div className="history-changes-grid">
-                        {entry.changedFields.map((field) => {
-                          const oldVal = entry.oldValues?.[field];
-                          const newVal = entry.newValues?.[field];
-                          return (
-                            <div key={field} className="history-change-item">
-                              <span className="history-change-field">{field}</span>
-                              <span className="history-change-old">
-                                {oldVal instanceof Object
-                                  ? new Date(oldVal).toLocaleDateString()
-                                  : String(oldVal ?? "—")}
-                              </span>
-                              <FaArrowRight className="history-change-arrow" />
-                              <span className="history-change-new">
-                                {newVal instanceof Object
-                                  ? new Date(newVal).toLocaleDateString()
-                                  : String(newVal ?? "—")}
-                              </span>
-                            </div>
-                          );
-                        })}
+                      {/* Changed fields — UPDATE only */}
+                      {entry.action === "UPDATE" && hasChanges && (
+                        <div className="history-changes-section">
+                          <div className="history-changes-title">Changes:</div>
+                          <div className="history-changes-grid">
+                            {entry.changedFields.map((field) => {
+                              const oldVal = entry.oldValues?.[field];
+                              const newVal = entry.newValues?.[field];
+                              const fmt = (v) =>
+                                v instanceof Object
+                                  ? new Date(v).toLocaleDateString()
+                                  : String(v ?? "—");
+                              return (
+                                <div key={field} className="history-change-item">
+                                  <span className="history-change-field">{field}</span>
+                                  <span className="history-change-old">{fmt(oldVal)}</span>
+                                  <FaArrowRight className="history-change-arrow" />
+                                  <span className="history-change-new">{fmt(newVal)}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Footer */}
+                      <div className="history-card-footer">
+                        <div className="history-card-user">
+                          <FaUser className="history-user-icon" />
+                          <span>{entry.userName || "Unknown User"}</span>
+                        </div>
+                        <div className="history-card-date">
+                          <FaCalendarAlt className="history-date-icon" />
+                          <span>{formatDateTime(entry.createdAt)}</span>
+                        </div>
                       </div>
                     </div>
                   )}
-
-                  {/* Footer */}
-                  <div className="history-card-footer">
-                    <div className="history-card-user">
-                      <FaUser className="history-user-icon" />
-                      <span>{entry.userName || "Unknown User"}</span>
-                    </div>
-                    <div className="history-card-date">
-                      <FaCalendarAlt className="history-date-icon" />
-                      <span>{formatDateTime(entry.createdAt)}</span>
-                    </div>
-                  </div>
                 </div>
               );
             })}

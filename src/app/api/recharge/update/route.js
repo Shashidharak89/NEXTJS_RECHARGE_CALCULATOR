@@ -119,20 +119,24 @@ export async function PUT(req) {
     // Log history only if there were changes
     if (changedFields.length > 0) {
       try {
-        // Create log message
-        const changes = changedFields.map(field => {
-          const oldVal = oldValues[field];
-          const newVal = newValues[field];
-          
-          // Format dates nicely
-          if (oldVal instanceof Date && newVal instanceof Date) {
-            return `${field}: ${oldVal.toISOString().split('T')[0]} → ${newVal.toISOString().split('T')[0]}`;
-          }
-          
-          return `${field}: ${oldVal} → ${newVal}`;
-        });
-        
-        const logMessage = `Updated ${existing.name}'s record: ${changes.join(', ')}`;
+        // Determine log message
+        let logMessage;
+        if (body.rtd) {
+          const rechargeDate = new Date(existing.lastrecharge).toLocaleDateString(undefined, {
+            year: 'numeric', month: 'short', day: 'numeric'
+          });
+          logMessage = `${existing.name} has done ${existing.reason || 'Recharge'} with ₹${existing.amount} on ${rechargeDate}`;
+        } else {
+          const changes = changedFields.map(field => {
+            const oldVal = oldValues[field];
+            const newVal = newValues[field];
+            if (oldVal instanceof Date && newVal instanceof Date) {
+              return `${field}: ${oldVal.toISOString().split('T')[0]} → ${newVal.toISOString().split('T')[0]}`;
+            }
+            return `${field}: ${oldVal} → ${newVal}`;
+          });
+          logMessage = `Updated ${existing.name}'s record: ${changes.join(', ')}`;
+        }
 
         await History.create({
           action: "UPDATE",
