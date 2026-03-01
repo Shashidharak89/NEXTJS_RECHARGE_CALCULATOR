@@ -9,6 +9,8 @@ import {
   FaSearch,
   FaFilter,
   FaTimes,
+  FaExclamationTriangle,
+  FaCheck,
   FaUser,
   FaClock,
   FaCalendarAlt,
@@ -89,23 +91,50 @@ export default function History() {
       return next;
     });
   };
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [notification, setNotification] = useState({ show: false, type: '', message: '' });
 
-  const deleteEntry = async (id, e) => {
-    e.stopPropagation();
+  // Open confirmation (does not perform delete yet)
+  const openDeleteConfirm = (id, e) => {
+    if (e) e.stopPropagation();
+    setPendingDeleteId(id);
+    setShowDeleteConfirm(true);
+  };
+
+  const cancelDelete = () => {
+    setPendingDeleteId(null);
+    setShowDeleteConfirm(false);
+  };
+
+  const confirmDelete = async () => {
+    const id = pendingDeleteId;
+    if (!id) return;
     try {
       await axios.delete("/api/history", {
         headers: { Authorization: `Bearer ${token}` },
         data: { id },
       });
+
       setHistory((prev) => prev.filter((h) => h._id !== id));
       setExpandedIds((prev) => {
         const next = new Set(prev);
         next.delete(id);
         return next;
       });
+      showNotification('success', 'History log deleted');
     } catch (err) {
       console.error("Failed to delete history entry:", err);
+      setNotification({ show: true, type: 'error', message: 'Failed to delete history entry' });
+    } finally {
+      setPendingDeleteId(null);
+      setShowDeleteConfirm(false);
     }
+  };
+
+  const showNotification = (type, message) => {
+    setNotification({ show: true, type, message });
+    setTimeout(() => setNotification({ show: false, type: '', message: '' }), 3500);
   };
 
   useEffect(() => {
@@ -194,6 +223,20 @@ export default function History() {
         </button>
       </div>
 
+      {notification.show && (
+        <div className={`history-notification-popup ${notification.type}`}>
+          <div className="history-notification-content">
+            <div className="history-notification-icon">
+              {notification.type === 'success' ? <FaCheck /> : <FaExclamationTriangle />}
+            </div>
+            <div className="history-notification-message">{notification.message}</div>
+            <button className="history-notification-close" onClick={() => setNotification({ show: false, type: '', message: '' })}>
+              <FaTimes />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Search & Filter Row */}
       <div className="history-controls">
         <div
@@ -251,6 +294,49 @@ export default function History() {
           <span className="history-results-text">
             results for &quot;<em>{searchQuery}</em>&quot;
           </span>
+        </div>
+      )}
+
+      {showDeleteConfirm && (
+        <div className="enhanced-form-overlay">
+          <div className="enhanced-delete-modal">
+            <div className="enhanced-delete-header">
+              <h2 className="enhanced-delete-title">
+                <FaTrashAlt className="enhanced-delete-icon" />
+                Confirm Delete
+              </h2>
+              <button className="enhanced-close-button" onClick={cancelDelete}>
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="enhanced-delete-content">
+              <div className="enhanced-delete-warning">
+                <FaExclamationTriangle className="enhanced-warning-icon" />
+                <p>Are you sure you want to delete this history log?</p>
+                <p className="enhanced-delete-subtext">This action cannot be undone.</p>
+              </div>
+
+              <div className="enhanced-delete-actions">
+                <button 
+                  type="button" 
+                  onClick={cancelDelete} 
+                  className="enhanced-cancel-button"
+                >
+                  <FaTimes />
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDelete}
+                  className="enhanced-delete-confirm-button"
+                >
+                  <FaTrashAlt />
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -313,7 +399,7 @@ export default function History() {
                         {cfg.icon}
                         {cfg.label}
                       </span>
-                      <p className="history-summary-log">{entry.logMessage}</p>
+                      <p className={`history-summary-log${isExpanded ? " history-summary-log--expanded" : ""}`}>{entry.logMessage}</p>
                     </div>
                     <div className="history-card-summary-right">
                       <span className="history-time-ago" title={formatDateTime(entry.createdAt)}>
@@ -342,10 +428,19 @@ export default function History() {
                             {entry.changedFields.map((field) => {
                               const oldVal = entry.oldValues?.[field];
                               const newVal = entry.newValues?.[field];
-                              const fmt = (v) =>
-                                v instanceof Object
-                                  ? new Date(v).toLocaleDateString()
-                                  : String(v ?? "—");
+                              const fmt = (v) => {
+                                if (v == null) return "—";
+                                // ISO date string or Date object → local date
+                                const d = new Date(v);
+                                if (!isNaN(d.getTime()) && typeof v === "string" && v.includes("T")) {
+                                  return d.toLocaleDateString(undefined, {
+                                    day: "2-digit",
+                                    month: "short",
+                                    year: "numeric",
+                                  });
+                                }
+                                return String(v);
+                              };
                               return (
                                 <div key={field} className="history-change-item">
                                   <span className="history-change-field">{field}</span>
@@ -373,7 +468,7 @@ export default function History() {
                         </div>
                         <button
                           className="history-delete-entry-btn"
-                          onClick={(e) => deleteEntry(entry._id, e)}
+                          onClick={(e) => openDeleteConfirm(entry._id, e)}
                           title="Delete this history log"
                         >
                           <FaTrashAlt />
