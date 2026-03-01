@@ -1,6 +1,7 @@
 "use client";
 import { useUser } from "context/UserContext";
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { 
   FaPlus, 
   FaEdit, 
@@ -25,16 +26,30 @@ import {
 import axios from "axios";
 import "./styles/RechargeList.css";
 
+const PAGE_SIZE = 10;
+
 export default function EnhancedRechargeList() {
-  const [recharges, setRecharges] = useState([]);
-  const [displayedRecharges, setDisplayedRecharges] = useState([]);
-  const [showForm, setShowForm] = useState(false);
-  const [editId, setEditId] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // URL-driven values
+  const urlSearch = searchParams.get("rq") || "";
+  const urlPage   = Math.max(parseInt(searchParams.get("rpage") || "1", 10), 1);
+
+  // Server data state
+  const [records, setRecords]       = useState([]);
+  const [total, setTotal]           = useState(0);
+  const [loadedPage, setLoadedPage] = useState(urlPage);
+
+  // Search input (unsubmitted — only fires on click/Enter)
+  const [inputQuery, setInputQuery] = useState(urlSearch);
+
+  // Form / UI state
+  const [showForm, setShowForm]                   = useState(false);
+  const [editId, setEditId]                       = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteId, setDeleteId] = useState(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchFocused, setSearchFocused] = useState(false);
+  const [deleteId, setDeleteId]                   = useState(null);
+  const [searchFocused, setSearchFocused]         = useState(false);
   const [form, setForm] = useState({
     name: "",
     phone: "",
@@ -44,134 +59,129 @@ export default function EnhancedRechargeList() {
     validity: "",
   });
   const [token, setToken] = useState("");
-  const [notification, setNotification] = useState({
-    show: false,
-    type: '',
-    message: ''
-  });
+  const [notification, setNotification] = useState({ show: false, type: "", message: "" });
 
   const { loading, setLoading } = useUser();
 
-  // Show notification popup
+  // Keep latest token available in callbacks without stale closure issues
+  const tokenRef = useRef("");
+  useEffect(() => { tokenRef.current = token; }, [token]);
+
+  // ── Notification helper ─────────────────────────────────────────────────────
   const showNotification = (type, message) => {
     setNotification({ show: true, type, message });
-    setTimeout(() => {
-      setNotification({ show: false, type: '', message: '' });
-    }, 4000);
+    setTimeout(() => setNotification({ show: false, type: "", message: "" }), 4000);
   };
 
-  const recordsPerPage = 20;
-
-  // Hide/Show body scrollbar
+  // ── Scroll lock when modals open ────────────────────────────────────────────
   useEffect(() => {
-    if (showForm || showDeleteConfirm) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'auto';
-    }
-    
-    return () => {
-      document.body.style.overflow = 'auto';
-    };
+    document.body.style.overflow = showForm || showDeleteConfirm ? "hidden" : "auto";
+    return () => { document.body.style.overflow = "auto"; };
   }, [showForm, showDeleteConfirm]);
 
+  // ── Token init ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    const savedToken = localStorage.getItem("token");
-    if (savedToken) {
-      setToken(savedToken);
-    }
+    const saved = localStorage.getItem("token");
+    if (saved) setToken(saved);
   }, []);
 
-  // Search functionality
-  const filteredRecharges = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return recharges;
-    }
+  // ── Core fetch ──────────────────────────────────────────────────────────────
+  //   mode: "init"     → restore all pages seen (urlPage * PAGE_SIZE)
+  //         "viewmore" → append next page
+  //         "refresh"  → reload current visible set
+  //         "search"   → reset to page 1 with new query
+  const doFetch = useCallback(
+    async (mode, overrides = {}) => {
+      const tk = tokenRef.current;
+      if (!tk) return;
 
-    const query = searchQuery.toLowerCase().trim();
-    
-    return recharges.filter((record) => {
-      // Search in name
-      if (record.name?.toLowerCase().includes(query)) return true;
-      
-      // Search in phone
-      if (record.phone?.toLowerCase().includes(query)) return true;
-      
-      // Search in reason
-      if (record.reason?.toLowerCase().includes(query)) return true;
-      
-      // Search in amount (convert to string)
-      if (record.amount?.toString().includes(query)) return true;
-      
-      // Search in validity
-      if (record.validity?.toString().includes(query)) return true;
-      
-      // Search in formatted dates
-      if (record.lastrecharge) {
-        const lastRechargeFormatted = new Date(record.lastrecharge).toLocaleDateString().toLowerCase();
-        if (lastRechargeFormatted.includes(query)) return true;
+      const currentSearch =
+        overrides.search !== undefined ? overrides.search : urlSearch;
+
+      let page, limit, appendMode;
+
+      if (mode === "init") {
+        page = 1;
+        limit = urlPage * PAGE_SIZE;
+        appendMode = false;
+      } else if (mode === "viewmore") {
+        page = loadedPage + 1;
+        limit = PAGE_SIZE;
+        appendMode = true;
+      } else if (mode === "search") {
+        page = 1;
+        limit = PAGE_SIZE;
+        appendMode = false;
+      } else {
+        // refresh — reload all currently-visible pages
+        page = 1;
+        limit = loadedPage * PAGE_SIZE;
+        appendMode = false;
       }
-      
-      if (record.deadline) {
-        const deadlineFormatted = new Date(record.deadline).toLocaleDateString().toLowerCase();
-        if (deadlineFormatted.includes(query)) return true;
+
+      try {
+        const params = new URLSearchParams();
+        params.set("page", page);
+        params.set("limit", limit);
+        if (currentSearch) params.set("search", currentSearch);
+
+        const res = await axios.get(`/api/recharge/all?${params.toString()}`, {
+          headers: { Authorization: `Bearer ${tk}` },
+        });
+
+        const { recharges: fetched, total: serverTotal } = res.data;
+
+        if (appendMode) {
+          setRecords((prev) => [...prev, ...fetched]);
+          const newLoaded = loadedPage + 1;
+          setLoadedPage(newLoaded);
+          const p = new URLSearchParams(searchParams.toString());
+          p.set("rpage", newLoaded);
+          router.replace(`?${p.toString()}`, { scroll: false });
+        } else {
+          setRecords(fetched);
+          if (mode === "search") {
+            setLoadedPage(1);
+            const p = new URLSearchParams(searchParams.toString());
+            if (currentSearch) p.set("rq", currentSearch); else p.delete("rq");
+            p.set("rpage", 1);
+            router.replace(`?${p.toString()}`, { scroll: false });
+          }
+        }
+
+        setTotal(serverTotal);
+      } catch (err) {
+        showNotification(
+          "error",
+          "Error fetching data: " + (err.response?.data?.error || err.message)
+        );
       }
-      
-      // Search in status
-      const status = record.closed ? 'closed' : 'active';
-      if (status.includes(query)) return true;
-      
-      // Search in payment status
-      const paymentStatus = record.paid ? 'paid' : 'unpaid';
-      if (paymentStatus.includes(query)) return true;
-      
-      return false;
-    });
-  }, [recharges, searchQuery]);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [loadedPage, urlPage, urlSearch, searchParams]
+  );
 
-  // Update displayed recharges when filtered results change
+  // ── Initial load (once token ready) ────────────────────────────────────────
   useEffect(() => {
-    const startIndex = 0;
-    const endIndex = currentPage * recordsPerPage;
-    setDisplayedRecharges(filteredRecharges.slice(startIndex, endIndex));
-  }, [filteredRecharges, currentPage]);
-
-  // Reset pagination when search changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery]);
-
-  const fetchRecharges = async () => {
-    try {
-      const res = await axios.get("/api/recharge/all", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const sorted = [...res.data.recharges].sort((a, b) => {
-        return a.closed === b.closed ? 0 : a.closed ? 1 : -1;
-      });
-
-      setRecharges(sorted);
-    } catch (err) {
-      alert("Error fetching data: " + (err.response?.data?.error || err.message));
-    }
-  };
-
-  useEffect(() => {
-    if (token) {
-      fetchRecharges();
-    }
+    if (token) doFetch("init");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  const handleViewMore = () => {
-    const nextPage = currentPage + 1;
-    setCurrentPage(nextPage);
-  };
+  // ── Search handlers (click / Enter only) ───────────────────────────────────
+  const handleSearchSubmit = () => doFetch("search", { search: inputQuery.trim() });
+  const handleSearchKeyDown = (e) => { if (e.key === "Enter") handleSearchSubmit(); };
+  const clearSearch = () => { setInputQuery(""); doFetch("search", { search: "" }); };
 
+  // ── View More ───────────────────────────────────────────────────────────────
+  const handleViewMore = () => doFetch("viewmore");
+
+  // ── Refresh after mutations ─────────────────────────────────────────────────
+  const refreshData = () => doFetch("refresh");
+
+  // ── Form submit ─────────────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-
     try {
       if (editId) {
         await axios.put(
@@ -179,90 +189,69 @@ export default function EnhancedRechargeList() {
           { id: editId, ...form },
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        showNotification('success', 'Recharge updated successfully!');
+        showNotification("success", "Recharge updated successfully!");
       } else {
         await axios.post("/api/recharge/create", form, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        showNotification('success', 'Recharge created successfully!');
+        showNotification("success", "Recharge created successfully!");
       }
-
       setShowForm(false);
       setEditId(null);
-      setForm({
-        name: "",
-        phone: "",
-        reason: "",
-        lastrecharge: "",
-        amount: "",
-        validity: "",
-      });
-      fetchRecharges();
+      setForm({ name: "", phone: "", reason: "", lastrecharge: "", amount: "", validity: "" });
+      refreshData();
     } catch (err) {
-      showNotification('error', 'Error saving: ' + (err.response?.data?.error || err.message));
+      showNotification("error", "Error saving: " + (err.response?.data?.error || err.message));
     } finally {
       setLoading(false);
     }
   };
 
+  // ── Toggle handlers ─────────────────────────────────────────────────────────
   const handleClosedToggle = async (id, closed) => {
     try {
-      await axios.put(
-        "/api/recharge/update",
-        { id, closed },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      fetchRecharges();
+      await axios.put("/api/recharge/update", { id, closed }, { headers: { Authorization: `Bearer ${token}` } });
+      refreshData();
     } catch (err) {
-      showNotification('error', 'Error updating status: ' + (err.response?.data?.error || err.message));
+      showNotification("error", "Error updating status: " + (err.response?.data?.error || err.message));
     }
   };
 
   const handlePaidToggle = async (id, paid) => {
     try {
-      await axios.put(
-        "/api/recharge/update",
-        { id, paid },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      fetchRecharges();
-      showNotification('success', `Payment status updated to ${paid ? 'Paid' : 'Unpaid'}`);
+      await axios.put("/api/recharge/update", { id, paid }, { headers: { Authorization: `Bearer ${token}` } });
+      refreshData();
+      showNotification("success", `Payment status updated to ${paid ? "Paid" : "Unpaid"}`);
     } catch (err) {
-      showNotification('error', 'Error updating payment status: ' + (err.response?.data?.error || err.message));
+      showNotification("error", "Error updating payment: " + (err.response?.data?.error || err.message));
     }
   };
 
-  const handleDeleteClick = (id) => {
-    setDeleteId(id);
-    setShowDeleteConfirm(true);
-  };
+  // ── Delete handlers ─────────────────────────────────────────────────────────
+  const handleDeleteClick = (id) => { setDeleteId(id); setShowDeleteConfirm(true); };
 
   const handleDeleteConfirm = async () => {
     if (!deleteId) return;
-    
     setLoading(true);
     try {
       await axios.delete("/api/recharge/delete", {
         headers: { Authorization: `Bearer ${token}` },
-        data: { id: deleteId }
+        data: { id: deleteId },
       });
-      
-      showNotification('success', 'Record deleted successfully!');
+      showNotification("success", "Record deleted successfully!");
       setShowDeleteConfirm(false);
       setDeleteId(null);
-      fetchRecharges();
+      refreshData();
     } catch (err) {
-      showNotification('error', 'Error deleting record: ' + (err.response?.data?.error || err.message));
+      showNotification("error", "Error deleting record: " + (err.response?.data?.error || err.message));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteCancel = () => {
-    setShowDeleteConfirm(false);
-    setDeleteId(null);
-  };
+  const handleDeleteCancel = () => { setShowDeleteConfirm(false); setDeleteId(null); };
 
+  // ── Edit / Reset form ───────────────────────────────────────────────────────
   const startEdit = (record) => {
     setEditId(record._id);
     setForm({
@@ -278,21 +267,11 @@ export default function EnhancedRechargeList() {
 
   const resetForm = () => {
     setEditId(null);
-    setForm({
-      name: "",
-      phone: "",
-      reason: "",
-      lastrecharge: "",
-      amount: "",
-      validity: "",
-    });
+    setForm({ name: "", phone: "", reason: "", lastrecharge: "", amount: "", validity: "" });
     setShowForm(false);
   };
 
-  const clearSearch = () => {
-    setSearchQuery("");
-  };
-
+  // ── RTD (Recharge Today) ────────────────────────────────────────────────────
   const handleRTD = async (record) => {
     const today = new Date().toISOString().split("T")[0];
     try {
@@ -301,26 +280,30 @@ export default function EnhancedRechargeList() {
         { id: record._id, lastrecharge: today, paid: false, rtd: true },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      showNotification('success', `RTD updated for ${record.name}!`);
-      fetchRecharges();
+      showNotification("success", `RTD updated for ${record.name}!`);
+      refreshData();
     } catch (err) {
-      showNotification('error', 'RTD failed: ' + (err.response?.data?.error || err.message));
+      showNotification("error", "RTD failed: " + (err.response?.data?.error || err.message));
     }
   };
 
+  const remaining = total - records.length;
+
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="enhanced-recharge-container">
+
       {/* Notification Popup */}
       {notification.show && (
         <div className={`enhanced-notification-popup ${notification.type}`}>
           <div className="enhanced-notification-content">
             <div className="enhanced-notification-icon">
-              {notification.type === 'success' ? <FaCheck /> : <FaExclamationTriangle />}
+              {notification.type === "success" ? <FaCheck /> : <FaExclamationTriangle />}
             </div>
             <span className="enhanced-notification-message">{notification.message}</span>
-            <button 
+            <button
               className="enhanced-notification-close"
-              onClick={() => setNotification({ show: false, type: '', message: '' })}
+              onClick={() => setNotification({ show: false, type: "", message: "" })}
             >
               <FaTimes />
             </button>
@@ -334,29 +317,21 @@ export default function EnhancedRechargeList() {
           <div className="enhanced-delete-modal">
             <div className="enhanced-delete-header">
               <h2 className="enhanced-delete-title">
-                <FaTrashAlt className="enhanced-delete-icon" />
-                Confirm Delete
+                <FaTrashAlt className="enhanced-delete-icon" /> Confirm Delete
               </h2>
               <button className="enhanced-close-button" onClick={handleDeleteCancel}>
                 <FaTimes />
               </button>
             </div>
-            
             <div className="enhanced-delete-content">
               <div className="enhanced-delete-warning">
                 <FaExclamationTriangle className="enhanced-warning-icon" />
                 <p>Are you sure you want to delete this recharge record?</p>
                 <p className="enhanced-delete-subtext">This action cannot be undone.</p>
               </div>
-              
               <div className="enhanced-delete-actions">
-                <button 
-                  type="button" 
-                  onClick={handleDeleteCancel} 
-                  className="enhanced-cancel-button"
-                >
-                  <FaTimes />
-                  Cancel
+                <button type="button" onClick={handleDeleteCancel} className="enhanced-cancel-button">
+                  <FaTimes /> Cancel
                 </button>
                 <button
                   type="button"
@@ -364,8 +339,7 @@ export default function EnhancedRechargeList() {
                   disabled={loading}
                   className="enhanced-delete-confirm-button"
                 >
-                  <FaTrashAlt />
-                  {loading ? "Deleting..." : "Delete Record"}
+                  <FaTrashAlt /> {loading ? "Deleting..." : "Delete Record"}
                 </button>
               </div>
             </div>
@@ -373,6 +347,7 @@ export default function EnhancedRechargeList() {
         </div>
       )}
 
+      {/* Page Header */}
       <div className="enhanced-recharge-header">
         <div className="enhanced-header-content">
           <h1 className="enhanced-page-title">
@@ -383,36 +358,36 @@ export default function EnhancedRechargeList() {
         </div>
         <button
           className="enhanced-add-button"
-          onClick={() => {
-            resetForm();
-            setShowForm(!showForm);
-          }}
+          onClick={() => { resetForm(); setShowForm(!showForm); }}
         >
-          <FaPlus />
-          Add New
+          <FaPlus /> Add New
         </button>
       </div>
 
       {/* Search Bar */}
       <div className="enhanced-search-section">
-        <div className={`enhanced-search-container ${searchFocused ? 'enhanced-search-focused' : ''}`}>
+        <div className={`enhanced-search-container ${searchFocused ? "enhanced-search-focused" : ""}`}>
           <div className="enhanced-search-input-wrapper">
-            <FaSearch className="enhanced-search-icon" />
+            <button
+              type="button"
+              className="history-search-icon-btn"
+              onClick={handleSearchSubmit}
+              title="Search"
+            >
+              <FaSearch className="enhanced-search-icon" />
+            </button>
             <input
               type="text"
               placeholder="Search by name, phone, amount, date, reason, status..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={inputQuery}
+              onChange={(e) => setInputQuery(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setSearchFocused(false)}
               className="enhanced-search-input"
             />
-            {searchQuery && (
-              <button 
-                onClick={clearSearch}
-                className="enhanced-search-clear"
-                type="button"
-              >
+            {inputQuery && (
+              <button onClick={clearSearch} className="enhanced-search-clear" type="button">
                 <FaTimes />
               </button>
             )}
@@ -421,21 +396,18 @@ export default function EnhancedRechargeList() {
             <FaFilter />
           </div>
         </div>
-        
-        {searchQuery && (
+
+        {urlSearch && (
           <div className="enhanced-search-results-info">
             <span className="enhanced-results-count">
-              {filteredRecharges.length} result{filteredRecharges.length !== 1 ? 's' : ''} found
+              {total} result{total !== 1 ? "s" : ""} found
             </span>
-            {searchQuery && (
-              <span className="enhanced-search-query">
-                for {searchQuery}
-              </span>
-            )}
+            <span className="enhanced-search-query">for &ldquo;{urlSearch}&rdquo;</span>
           </div>
         )}
       </div>
 
+      {/* Add / Edit Form Modal */}
       {showForm && (
         <div className="enhanced-form-overlay">
           <div className="enhanced-form-modal">
@@ -447,13 +419,11 @@ export default function EnhancedRechargeList() {
                 <FaTimes />
               </button>
             </div>
-            
             <form onSubmit={handleSubmit} className="enhanced-recharge-form">
               <div className="enhanced-form-grid">
                 <div className="enhanced-form-group">
                   <label className="enhanced-form-label">
-                    <FaUser className="enhanced-label-icon" />
-                    Full Name
+                    <FaUser className="enhanced-label-icon" /> Full Name
                   </label>
                   <input
                     type="text"
@@ -464,11 +434,9 @@ export default function EnhancedRechargeList() {
                     className="enhanced-form-input"
                   />
                 </div>
-                
                 <div className="enhanced-form-group">
                   <label className="enhanced-form-label">
-                    <FaPhone className="enhanced-label-icon" />
-                    Phone Number
+                    <FaPhone className="enhanced-label-icon" /> Phone Number
                   </label>
                   <input
                     type="text"
@@ -478,11 +446,8 @@ export default function EnhancedRechargeList() {
                     className="enhanced-form-input"
                   />
                 </div>
-                
                 <div className="enhanced-form-group">
-                  <label className="enhanced-form-label">
-                    Reason
-                  </label>
+                  <label className="enhanced-form-label">Reason</label>
                   <input
                     type="text"
                     placeholder="Enter reason"
@@ -491,11 +456,9 @@ export default function EnhancedRechargeList() {
                     className="enhanced-form-input"
                   />
                 </div>
-                
                 <div className="enhanced-form-group">
                   <label className="enhanced-form-label">
-                    <FaCalendarAlt className="enhanced-label-icon" />
-                    Last Recharge Date
+                    <FaCalendarAlt className="enhanced-label-icon" /> Last Recharge Date
                   </label>
                   <input
                     type="date"
@@ -504,11 +467,9 @@ export default function EnhancedRechargeList() {
                     className="enhanced-form-input"
                   />
                 </div>
-                
                 <div className="enhanced-form-group">
                   <label className="enhanced-form-label">
-                    <FaMoneyBillWave className="enhanced-label-icon" />
-                    Amount
+                    <FaMoneyBillWave className="enhanced-label-icon" /> Amount
                   </label>
                   <input
                     type="number"
@@ -518,11 +479,9 @@ export default function EnhancedRechargeList() {
                     className="enhanced-form-input"
                   />
                 </div>
-                
                 <div className="enhanced-form-group">
                   <label className="enhanced-form-label">
-                    <FaClock className="enhanced-label-icon" />
-                    Validity (days)
+                    <FaClock className="enhanced-label-icon" /> Validity (days)
                   </label>
                   <input
                     type="number"
@@ -533,53 +492,49 @@ export default function EnhancedRechargeList() {
                   />
                 </div>
               </div>
-              
               <div className="enhanced-form-actions">
                 <button type="button" onClick={resetForm} className="enhanced-cancel-button">
-                  <FaTimes />
-                  Cancel
+                  <FaTimes /> Cancel
                 </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="enhanced-submit-button"
-                >
-                  <FaSave />
-                  {loading ? "Saving..." : editId ? "Update Record" : "Save Record"}
+                <button type="submit" disabled={loading} className="enhanced-submit-button">
+                  <FaSave /> {loading ? "Saving..." : editId ? "Update Record" : "Save Record"}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-      
 
+      {/* Records Section */}
       <div className="enhanced-records-section">
         <div className="enhanced-records-header">
           <h2 className="enhanced-section-title">
-            {searchQuery ? 'Search Results' : 'All Records'} ({filteredRecharges.length})
+            {urlSearch ? "Search Results" : "All Records"} ({total})
           </h2>
           <div className="enhanced-records-info">
-            Showing {displayedRecharges.length} of {filteredRecharges.length} records
+            Showing {records.length} of {total} records
           </div>
         </div>
 
         <div className="enhanced-records-grid">
-          {displayedRecharges.map((record) => (
-            <div key={record._id} className={`enhanced-record-card ${record.closed ? 'enhanced-closed' : 'enhanced-open'}`}>
+          {records.map((record) => (
+            <div
+              key={record._id}
+              className={`enhanced-record-card ${record.closed ? "enhanced-closed" : "enhanced-open"}`}
+            >
               <div className="enhanced-record-header">
                 <div className="enhanced-record-name">
                   <FaUser className="enhanced-record-icon" />
                   <span>{record.name}</span>
                 </div>
                 <div className="enhanced-record-actions">
-                  <div className={`enhanced-status-badge ${record.closed ? 'enhanced-closed' : 'enhanced-open'}`}>
+                  <div className={`enhanced-status-badge ${record.closed ? "enhanced-closed" : "enhanced-open"}`}>
                     {record.closed ? <FaTimesCircle /> : <FaCheckCircle />}
-                    {record.closed ? 'Closed' : 'Active'}
+                    {record.closed ? "Closed" : "Active"}
                   </div>
-                  <div className={`enhanced-status-badge enhanced-paid-badge ${record.paid ? 'enhanced-paid' : 'enhanced-unpaid'}`}>
+                  <div className={`enhanced-status-badge enhanced-paid-badge ${record.paid ? "enhanced-paid" : "enhanced-unpaid"}`}>
                     <FaCoins />
-                    {record.paid ? 'Paid' : 'Unpaid'}
+                    {record.paid ? "Paid" : "Unpaid"}
                   </div>
                   {!record.closed && (
                     <button
@@ -587,14 +542,10 @@ export default function EnhancedRechargeList() {
                       onClick={() => handleRTD(record)}
                       title="Recharge Today — sets last recharge to today & marks unpaid"
                     >
-                      <FaBolt />
-                      RTD
+                      <FaBolt /> RTD
                     </button>
                   )}
-                  <button
-                    className="enhanced-edit-button"
-                    onClick={() => startEdit(record)}
-                  >
+                  <button className="enhanced-edit-button" onClick={() => startEdit(record)}>
                     <FaEdit />
                   </button>
                   {record.closed && (
@@ -613,26 +564,22 @@ export default function EnhancedRechargeList() {
                 <div className="enhanced-detail-item">
                   <FaPhone className="enhanced-detail-icon" />
                   <span className="enhanced-detail-label">Phone:</span>
-                  <span className="enhanced-detail-value">{record.phone || 'N/A'}</span>
+                  <span className="enhanced-detail-value">{record.phone || "N/A"}</span>
                 </div>
-
                 <div className="enhanced-detail-item">
                   <span className="enhanced-detail-label">Reason:</span>
-                  <span className="enhanced-detail-value">{record.reason || 'N/A'}</span>
+                  <span className="enhanced-detail-value">{record.reason || "N/A"}</span>
                 </div>
-
                 <div className="enhanced-detail-item">
                   <FaMoneyBillWave className="enhanced-detail-icon" />
                   <span className="enhanced-detail-label">Amount:</span>
-                  <span className="enhanced-detail-value enhanced-amount">₹{record.amount || '0'}</span>
+                  <span className="enhanced-detail-value enhanced-amount">₹{record.amount || "0"}</span>
                 </div>
-
                 <div className="enhanced-detail-item">
                   <FaClock className="enhanced-detail-icon" />
                   <span className="enhanced-detail-label">Validity:</span>
-                  <span className="enhanced-detail-value">{record.validity || '0'} days</span>
+                  <span className="enhanced-detail-value">{record.validity || "0"} days</span>
                 </div>
-
                 <div className="enhanced-detail-item">
                   <FaCalendarAlt className="enhanced-detail-icon" />
                   <span className="enhanced-detail-label">Last Recharge:</span>
@@ -640,7 +587,6 @@ export default function EnhancedRechargeList() {
                     {new Date(record.lastrecharge).toLocaleDateString()}
                   </span>
                 </div>
-
                 <div className="enhanced-detail-item">
                   <FaCalendarAlt className="enhanced-detail-icon" />
                   <span className="enhanced-detail-label">Deadline:</span>
@@ -660,9 +606,8 @@ export default function EnhancedRechargeList() {
                       className="enhanced-status-checkbox"
                     />
                     <span className="enhanced-checkmark"></span>
-                    Mark as {record.closed ? 'Open' : 'Closed'}
+                    Mark as {record.closed ? "Open" : "Closed"}
                   </label>
-                  
                   <label className="enhanced-checkbox-container">
                     <input
                       type="checkbox"
@@ -671,7 +616,7 @@ export default function EnhancedRechargeList() {
                       className="enhanced-status-checkbox enhanced-paid-checkbox"
                     />
                     <span className="enhanced-checkmark"></span>
-                    Mark as {record.paid ? 'Unpaid' : 'Paid'}
+                    Mark as {record.paid ? "Unpaid" : "Paid"}
                   </label>
                 </div>
               </div>
@@ -679,16 +624,21 @@ export default function EnhancedRechargeList() {
           ))}
         </div>
 
-        {displayedRecharges.length < filteredRecharges.length && (
+        {/* View More */}
+        {remaining > 0 && (
           <div className="enhanced-view-more-section">
-            <button className="enhanced-view-more-button" onClick={handleViewMore}>
-              <FaEye />
-              View More Records
+            <button
+              className="enhanced-view-more-button"
+              onClick={handleViewMore}
+              disabled={loading}
+            >
+              <FaEye /> View More Records ({remaining} remaining)
             </button>
           </div>
         )}
 
-        {filteredRecharges.length === 0 && !searchQuery && (
+        {/* Empty states */}
+        {records.length === 0 && !urlSearch && (
           <div className="enhanced-empty-state">
             <FaMoneyBillWave className="enhanced-empty-icon" />
             <h3>No Records Found</h3>
@@ -696,15 +646,12 @@ export default function EnhancedRechargeList() {
           </div>
         )}
 
-        {filteredRecharges.length === 0 && searchQuery && (
+        {records.length === 0 && urlSearch && (
           <div className="enhanced-empty-state">
             <FaSearch className="enhanced-empty-icon" />
             <h3>No Results Found</h3>
             <p>No records match your search criteria</p>
-            <button 
-              onClick={clearSearch}
-              className="enhanced-clear-search-button"
-            >
+            <button onClick={clearSearch} className="enhanced-clear-search-button">
               Clear Search
             </button>
           </div>

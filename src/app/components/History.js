@@ -1,6 +1,6 @@
 "use client";
-import { useUser } from "context/UserContext";
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   FaHistory,
   FaPlus,
@@ -14,7 +14,6 @@ import {
   FaUser,
   FaClock,
   FaCalendarAlt,
-  FaInfoCircle,
   FaSyncAlt,
   FaArrowRight,
   FaChevronDown,
@@ -23,67 +22,175 @@ import {
 import axios from "axios";
 import "./styles/History.css";
 
+const PAGE_SIZE = 10;
+
 const ACTION_CONFIG = {
-  CREATE: {
-    label: "Created",
-    icon: <FaPlus />,
-    className: "history-badge-create",
-  },
-  UPDATE: {
-    label: "Updated",
-    icon: <FaEdit />,
-    className: "history-badge-update",
-  },
-  RTD: {
-    label: "Recharge Today",
-    icon: <FaBolt />,
-    className: "history-badge-rtd",
-  },
-  DELETE: {
-    label: "Deleted",
-    icon: <FaTrashAlt />,
-    className: "history-badge-delete",
-  },
+  CREATE: { label: "Created",        icon: <FaPlus />,    className: "history-badge-create" },
+  UPDATE: { label: "Updated",        icon: <FaEdit />,    className: "history-badge-update" },
+  RTD:    { label: "Recharge Today", icon: <FaBolt />,    className: "history-badge-rtd"    },
+  DELETE: { label: "Deleted",        icon: <FaTrashAlt />,className: "history-badge-delete" },
 };
 
 function formatDateTime(dateStr) {
   const date = new Date(dateStr);
-  const time = date.toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-  const day = date.toLocaleDateString(undefined, {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  const time = date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: true });
+  const day  = date.toLocaleDateString(undefined,  { day: "2-digit", month: "short", year: "numeric" });
   return `${time}, ${day}`;
 }
 
 function timeAgo(dateStr) {
-  const now = new Date();
-  const then = new Date(dateStr);
-  const diff = Math.floor((now - then) / 1000);
-
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
+  if (diff < 60)      return `${diff}s ago`;
+  if (diff < 3600)    return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400)   return `${Math.floor(diff / 3600)}h ago`;
   if (diff < 2592000) return `${Math.floor(diff / 86400)}d ago`;
   return `${Math.floor(diff / 2592000)}mo ago`;
 }
 
 export default function History() {
-  const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [token, setToken] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchFocused, setSearchFocused] = useState(false);
-  const [filterAction, setFilterAction] = useState("ALL");
-  const [displayCount, setDisplayCount] = useState(20);
-  const [expandedIds, setExpandedIds] = useState(new Set());
+  const router       = useRouter();
+  const searchParams = useSearchParams();
 
+  // URL-persisted state (namespaced with "h" to avoid clash with RechargeList)
+  const urlSearch = searchParams.get("hq")   || "";
+  const urlAction = searchParams.get("hact") || "ALL";
+  const urlPage   = Math.max(1, parseInt(searchParams.get("hpage") || "1", 10));
+
+  // Local UI state
+  const [inputQuery,      setInputQuery]      = useState(urlSearch);
+  const [records,         setRecords]         = useState([]);
+  const [total,           setTotal]           = useState(0);
+  const [loadedPage,      setLoadedPage]      = useState(urlPage);
+  const [initialLoading,  setInitialLoading]  = useState(true);
+  const [loadingMore,     setLoadingMore]     = useState(false);
+  const [refreshing,      setRefreshing]      = useState(false);
+  const [expandedIds,     setExpandedIds]     = useState(new Set());
+  const [token,           setToken]           = useState("");
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [notification,    setNotification]    = useState({ show: false, type: "", message: "" });
+
+  const showNotification = useCallback((type, message) => {
+    setNotification({ show: true, type, message });
+    setTimeout(() => setNotification({ show: false, type: "", message: "" }), 3500);
+  }, []);
+
+  // ─── URL helpers ─────────────────────────────────────────────────────────
+  const updateParams = useCallback((updates) => {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([k, v]) => {
+      if (v === null || v === "" || v === "ALL") params.delete(k);
+      else params.set(k, String(v));
+    });
+    router.replace(`?${params.toString()}`, { scroll: false });
+  }, [router, searchParams]);
+
+  // ─── Token ───────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const t = localStorage.getItem("token");
+    if (t) setToken(t);
+  }, []);
+
+  // ─── Fetch ───────────────────────────────────────────────────────────────
+  const doFetch = useCallback(async (mode, overrides = {}) => {
+    if (!token) return;
+
+    const search = overrides.search !== undefined ? overrides.search : urlSearch;
+    const action = overrides.action !== undefined ? overrides.action : urlAction;
+    const curLoadedPage = overrides.loadedPage !== undefined ? overrides.loadedPage : loadedPage;
+
+    let page  = 1;
+    let limit = PAGE_SIZE;
+
+    if (mode === "init") {
+      // Restore all previously-loaded pages in one request
+      page  = 1;
+      limit = urlPage * PAGE_SIZE;
+      setInitialLoading(true);
+    } else if (mode === "viewmore") {
+      page  = curLoadedPage + 1;
+      limit = PAGE_SIZE;
+      setLoadingMore(true);
+    } else if (mode === "refresh") {
+      page  = 1;
+      limit = Math.max(curLoadedPage * PAGE_SIZE, PAGE_SIZE);
+      setRefreshing(true);
+    } else {
+      // "search" / action-change / clear
+      page  = 1;
+      limit = PAGE_SIZE;
+      setInitialLoading(true);
+    }
+
+    try {
+      const qs = new URLSearchParams({ page, limit });
+      if (search.trim()) qs.set("search", search.trim());
+      if (action && action !== "ALL") qs.set("action", action);
+
+      const res = await axios.get(`/api/history?${qs.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const incoming = res.data.history || [];
+      const newTotal = res.data.total   || 0;
+
+      setTotal(newTotal);
+
+      if (mode === "viewmore") {
+        setRecords((prev) => [...prev, ...incoming]);
+        const nextPage = curLoadedPage + 1;
+        setLoadedPage(nextPage);
+        updateParams({ hpage: nextPage });
+      } else {
+        setRecords(incoming);
+        const pagesLoaded = mode === "init" ? urlPage : 1;
+        setLoadedPage(pagesLoaded);
+        if (mode !== "init") updateParams({ hpage: 1 });
+      }
+    } catch (err) {
+      console.error("Failed to fetch history:", err);
+      showNotification("error", "Failed to load history");
+    } finally {
+      setInitialLoading(false);
+      setLoadingMore(false);
+      setRefreshing(false);
+    }
+  }, [token, urlSearch, urlAction, urlPage, loadedPage, updateParams, showNotification]);
+
+  // Initial load
+  const didInit = useRef(false);
+  useEffect(() => {
+    if (token && !didInit.current) {
+      didInit.current = true;
+      doFetch("init");
+    }
+  }, [token, doFetch]);
+
+  // ─── Search ──────────────────────────────────────────────────────────────
+  const submitSearch = useCallback(() => {
+    updateParams({ hq: inputQuery.trim() || null, hpage: 1, hact: urlAction !== "ALL" ? urlAction : null });
+    doFetch("search", { search: inputQuery.trim(), action: urlAction, loadedPage: 0 });
+  }, [inputQuery, urlAction, updateParams, doFetch]);
+
+  const clearSearch = useCallback(() => {
+    setInputQuery("");
+    updateParams({ hq: null, hpage: 1 });
+    doFetch("search", { search: "", action: urlAction, loadedPage: 0 });
+  }, [urlAction, updateParams, doFetch]);
+
+  // ─── Action filter ───────────────────────────────────────────────────────
+  const setAction = useCallback((action) => {
+    updateParams({ hact: action !== "ALL" ? action : null, hpage: 1 });
+    doFetch("search", { search: urlSearch, action, loadedPage: 0 });
+  }, [urlSearch, updateParams, doFetch]);
+
+  // ─── View More ───────────────────────────────────────────────────────────
+  const viewMore = () => doFetch("viewmore");
+
+  // ─── Refresh ─────────────────────────────────────────────────────────────
+  const refresh = () => doFetch("refresh");
+
+  // ─── Expand / Collapse ───────────────────────────────────────────────────
   const toggleExpand = (id) => {
     setExpandedIds((prev) => {
       const next = new Set(prev);
@@ -91,21 +198,10 @@ export default function History() {
       return next;
     });
   };
-  const [pendingDeleteId, setPendingDeleteId] = useState(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [notification, setNotification] = useState({ show: false, type: '', message: '' });
 
-  // Open confirmation (does not perform delete yet)
-  const openDeleteConfirm = (id, e) => {
-    if (e) e.stopPropagation();
-    setPendingDeleteId(id);
-    setShowDeleteConfirm(true);
-  };
-
-  const cancelDelete = () => {
-    setPendingDeleteId(null);
-    setShowDeleteConfirm(false);
-  };
+  // ─── Delete flow ─────────────────────────────────────────────────────────
+  const openDeleteConfirm  = (id, e) => { if (e) e.stopPropagation(); setPendingDeleteId(id); setShowDeleteConfirm(true); };
+  const cancelDelete       = ()      => { setPendingDeleteId(null); setShowDeleteConfirm(false); };
 
   const confirmDelete = async () => {
     const id = pendingDeleteId;
@@ -115,92 +211,41 @@ export default function History() {
         headers: { Authorization: `Bearer ${token}` },
         data: { id },
       });
-
-      setHistory((prev) => prev.filter((h) => h._id !== id));
-      setExpandedIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-      showNotification('success', 'History log deleted');
+      setRecords((prev) => prev.filter((h) => h._id !== id));
+      setTotal((prev) => prev - 1);
+      setExpandedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+      showNotification("success", "History log deleted");
     } catch (err) {
-      console.error("Failed to delete history entry:", err);
-      setNotification({ show: true, type: 'error', message: 'Failed to delete history entry' });
+      console.error("Failed to delete history:", err);
+      showNotification("error", "Failed to delete history entry");
     } finally {
       setPendingDeleteId(null);
       setShowDeleteConfirm(false);
     }
   };
 
-  const showNotification = (type, message) => {
-    setNotification({ show: true, type, message });
-    setTimeout(() => setNotification({ show: false, type: '', message: '' }), 3500);
-  };
+  const hasMore = records.length < total;
 
-  useEffect(() => {
-    const savedToken = localStorage.getItem("token");
-    if (savedToken) setToken(savedToken);
-  }, []);
-
-  const fetchHistory = async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-
-    try {
-      const res = await axios.get("/api/history?limit=200", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setHistory(res.data.history || []);
-    } catch (err) {
-      console.error("Error fetching history:", err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    if (token) fetchHistory();
-  }, [token]);
-
-  const filteredHistory = useMemo(() => {
-    let result = history;
-
-    if (filterAction !== "ALL") {
-      result = result.filter((h) => h.action === filterAction);
-    }
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      result = result.filter(
-        (h) =>
-          h.logMessage?.toLowerCase().includes(q) ||
-          h.userName?.toLowerCase().includes(q) ||
-          h.action?.toLowerCase().includes(q) ||
-          h.changedFields?.some((f) => f.toLowerCase().includes(q))
-      );
-    }
-
-    return result;
-  }, [history, filterAction, searchQuery]);
-
-  const displayed = filteredHistory.slice(0, displayCount);
-
-  const clearSearch = () => setSearchQuery("");
-
-  if (loading) {
-    return (
-      <div className="history-container">
-        <div className="history-loading">
-          <div className="history-spinner"></div>
-          <p>Loading history...</p>
-        </div>
-      </div>
-    );
-  }
-
+  // ─── Render ──────────────────────────────────────────────────────────────
   return (
     <div className="history-container">
+
+      {/* Toast */}
+      {notification.show && (
+        <div className={`history-notification-popup ${notification.type}`}>
+          <div className="history-notification-content">
+            <div className="history-notification-icon">
+              {notification.type === "success" ? <FaCheck /> : <FaExclamationTriangle />}
+            </div>
+            <div className="history-notification-message">{notification.message}</div>
+            <button className="history-notification-close"
+              onClick={() => setNotification({ show: false, type: "", message: "" })}>
+              <FaTimes />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="history-header">
         <div className="history-header-content">
@@ -214,49 +259,37 @@ export default function History() {
         </div>
         <button
           className={`history-refresh-button ${refreshing ? "spinning" : ""}`}
-          onClick={() => fetchHistory(true)}
+          onClick={refresh}
           disabled={refreshing}
-          title="Refresh history"
+          title="Refresh"
         >
           <FaSyncAlt />
-          {refreshing ? "Refreshing..." : "Refresh"}
+          {refreshing ? "Refreshing…" : "Refresh"}
         </button>
       </div>
 
-      {notification.show && (
-        <div className={`history-notification-popup ${notification.type}`}>
-          <div className="history-notification-content">
-            <div className="history-notification-icon">
-              {notification.type === 'success' ? <FaCheck /> : <FaExclamationTriangle />}
-            </div>
-            <div className="history-notification-message">{notification.message}</div>
-            <button className="history-notification-close" onClick={() => setNotification({ show: false, type: '', message: '' })}>
-              <FaTimes />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Search & Filter Row */}
+      {/* Search & Filter */}
       <div className="history-controls">
-        <div
-          className={`history-search-container ${
-            searchFocused ? "history-search-focused" : ""
-          }`}
-        >
+        <div className="history-search-container">
           <div className="history-search-input-wrapper">
-            <FaSearch className="history-search-icon" />
+            <button
+              className="history-search-icon-btn"
+              onClick={submitSearch}
+              title="Search"
+              aria-label="Submit search"
+            >
+              <FaSearch className="history-search-icon" />
+            </button>
             <input
               type="text"
               className="history-search-input"
-              placeholder="Search by name, action, field..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
+              placeholder="Type and press the search icon…"
+              value={inputQuery}
+              onChange={(e) => setInputQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submitSearch()}
             />
-            {searchQuery && (
-              <button className="history-search-clear" onClick={clearSearch}>
+            {urlSearch && (
+              <button className="history-search-clear" onClick={clearSearch} title="Clear">
                 <FaTimes />
               </button>
             )}
@@ -264,39 +297,29 @@ export default function History() {
           <FaFilter className="history-filter-icon" />
         </div>
 
-        {/* Action Filter Pills */}
+        {urlSearch && (
+          <div className="history-active-search-badge">
+            Searching: <em>&quot;{urlSearch}&quot;</em>
+            <button onClick={clearSearch}><FaTimes /></button>
+          </div>
+        )}
+
         <div className="history-filter-pills">
           {["ALL", "CREATE", "UPDATE", "DELETE"].map((action) => (
             <button
               key={action}
-              className={`history-pill ${
-                filterAction === action ? "history-pill-active" : ""
-              } ${action !== "ALL" ? `history-pill-${action.toLowerCase()}` : ""}`}
-              onClick={() => setFilterAction(action)}
+              className={`history-pill ${urlAction === action ? "history-pill-active" : ""} ${action !== "ALL" ? `history-pill-${action.toLowerCase()}` : ""}`}
+              onClick={() => setAction(action)}
             >
-              {action === "ALL" ? (
-                "All Actions"
-              ) : (
-                <>
-                  {ACTION_CONFIG[action].icon}
-                  {ACTION_CONFIG[action].label}
-                </>
-              )}
+              {action === "ALL"
+                ? "All Actions"
+                : <>{ACTION_CONFIG[action].icon} {ACTION_CONFIG[action].label}</>}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Results info */}
-      {searchQuery && (
-        <div className="history-results-info">
-          <span className="history-results-count">{filteredHistory.length}</span>
-          <span className="history-results-text">
-            results for &quot;<em>{searchQuery}</em>&quot;
-          </span>
-        </div>
-      )}
-
+      {/* Delete confirmation modal */}
       {showDeleteConfirm && (
         <div className="enhanced-form-overlay">
           <div className="enhanced-delete-modal">
@@ -305,34 +328,20 @@ export default function History() {
                 <FaTrashAlt className="enhanced-delete-icon" />
                 Confirm Delete
               </h2>
-              <button className="enhanced-close-button" onClick={cancelDelete}>
-                <FaTimes />
-              </button>
+              <button className="enhanced-close-button" onClick={cancelDelete}><FaTimes /></button>
             </div>
-
             <div className="enhanced-delete-content">
               <div className="enhanced-delete-warning">
                 <FaExclamationTriangle className="enhanced-warning-icon" />
                 <p>Are you sure you want to delete this history log?</p>
                 <p className="enhanced-delete-subtext">This action cannot be undone.</p>
               </div>
-
               <div className="enhanced-delete-actions">
-                <button 
-                  type="button" 
-                  onClick={cancelDelete} 
-                  className="enhanced-cancel-button"
-                >
-                  <FaTimes />
-                  Cancel
+                <button type="button" onClick={cancelDelete} className="enhanced-cancel-button">
+                  <FaTimes /> Cancel
                 </button>
-                <button
-                  type="button"
-                  onClick={confirmDelete}
-                  className="enhanced-delete-confirm-button"
-                >
-                  <FaTrashAlt />
-                  Delete
+                <button type="button" onClick={confirmDelete} className="enhanced-delete-confirm-button">
+                  <FaTrashAlt /> Delete
                 </button>
               </div>
             </div>
@@ -340,53 +349,51 @@ export default function History() {
         </div>
       )}
 
-      {/* History Records */}
+      {/* Records */}
       <div className="history-records-section">
         <div className="history-records-header">
           <h2 className="history-section-title">
-            {filterAction === "ALL" ? "All Activity" : `${ACTION_CONFIG[filterAction].label} Events`} ({filteredHistory.length})
+            {urlAction === "ALL"
+              ? "All Activity"
+              : `${ACTION_CONFIG[urlAction]?.label ?? urlAction} Events`}{" "}
+            ({total})
           </h2>
-          <div className="history-records-info">
-            Showing {displayed.length} of {filteredHistory.length}
-          </div>
+          <div className="history-records-info">Showing {records.length} of {total}</div>
         </div>
 
-        {displayed.length === 0 ? (
+        {initialLoading ? (
+          <div className="history-loading">
+            <div className="history-spinner" />
+            <p>Loading history…</p>
+          </div>
+        ) : records.length === 0 ? (
           <div className="history-empty-state">
             <FaHistory className="history-empty-icon" />
             <h3>No History Found</h3>
-            <p>
-              {searchQuery || filterAction !== "ALL"
-                ? "No records match your filters"
-                : "Actions you perform will appear here"}
-            </p>
-            {(searchQuery || filterAction !== "ALL") && (
-              <button
-                className="history-clear-filters-button"
-                onClick={() => {
-                  clearSearch();
-                  setFilterAction("ALL");
-                }}
-              >
+            <p>{urlSearch || urlAction !== "ALL"
+              ? "No records match your filters"
+              : "Actions you perform will appear here"}</p>
+            {(urlSearch || urlAction !== "ALL") && (
+              <button className="history-clear-filters-button"
+                onClick={() => { clearSearch(); setAction("ALL"); }}>
                 Clear Filters
               </button>
             )}
           </div>
         ) : (
           <div className="history-timeline">
-            {displayed.map((entry, index) => {
-              const isRTD = entry.action === "UPDATE" && entry.logMessage?.includes(" has done ");
+            {records.map((entry) => {
+              const isRTD         = entry.action === "UPDATE" && entry.logMessage?.includes(" has done ");
               const displayAction = isRTD ? "RTD" : entry.action;
-              const cfg = ACTION_CONFIG[displayAction] || ACTION_CONFIG.UPDATE;
-              const hasChanges = entry.changedFields && entry.changedFields.length > 0;
-              const isExpanded = expandedIds.has(entry._id);
+              const cfg           = ACTION_CONFIG[displayAction] || ACTION_CONFIG.UPDATE;
+              const hasChanges    = entry.changedFields?.length > 0;
+              const isExpanded    = expandedIds.has(entry._id);
 
               return (
-                <div
-                  key={entry._id}
-                  className={`history-card history-card-${isRTD ? "rtd" : entry.action?.toLowerCase()}`}
-                >
-                  {/* Clickable summary row */}
+                <div key={entry._id}
+                  className={`history-card history-card-${isRTD ? "rtd" : entry.action?.toLowerCase()}`}>
+
+                  {/* Summary row */}
                   <div
                     className="history-card-summary"
                     onClick={() => toggleExpand(entry._id)}
@@ -396,31 +403,28 @@ export default function History() {
                   >
                     <div className="history-card-summary-left">
                       <span className={`history-action-badge ${cfg.className}`}>
-                        {cfg.icon}
-                        {cfg.label}
+                        {cfg.icon} {cfg.label}
                       </span>
-                      <p className={`history-summary-log${isExpanded ? " history-summary-log--expanded" : ""}`}>{entry.logMessage}</p>
+                      <p className={`history-summary-log${isExpanded ? " history-summary-log--expanded" : ""}`}>
+                        {entry.logMessage}
+                      </p>
                     </div>
                     <div className="history-card-summary-right">
                       <span className="history-time-ago" title={formatDateTime(entry.createdAt)}>
                         <FaClock className="history-time-icon" />
                         {timeAgo(entry.createdAt)}
                       </span>
-                      <FaChevronDown
-                        className={`history-chevron ${isExpanded ? "history-chevron-open" : ""}`}
-                      />
+                      <FaChevronDown className={`history-chevron ${isExpanded ? "history-chevron-open" : ""}`} />
                     </div>
                   </div>
 
-                  {/* Expanded detail section */}
+                  {/* Expanded detail */}
                   {isExpanded && (
                     <div className="history-card-detail">
-                      {/* Record type row */}
                       <div className="history-detail-row">
                         <span className="history-record-type">{entry.recordType}</span>
                       </div>
 
-                      {/* Changed fields — UPDATE only */}
                       {entry.action === "UPDATE" && hasChanges && (
                         <div className="history-changes-section">
                           <div className="history-changes-title">Changes:</div>
@@ -430,14 +434,9 @@ export default function History() {
                               const newVal = entry.newValues?.[field];
                               const fmt = (v) => {
                                 if (v == null) return "—";
-                                // ISO date string or Date object → local date
                                 const d = new Date(v);
-                                if (!isNaN(d.getTime()) && typeof v === "string" && v.includes("T")) {
-                                  return d.toLocaleDateString(undefined, {
-                                    day: "2-digit",
-                                    month: "short",
-                                    year: "numeric",
-                                  });
+                                if (typeof v === "string" && v.includes("T") && !isNaN(d.getTime())) {
+                                  return d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
                                 }
                                 return String(v);
                               };
@@ -454,7 +453,6 @@ export default function History() {
                         </div>
                       )}
 
-                      {/* Footer */}
                       <div className="history-card-footer">
                         <div className="history-footer-left">
                           <div className="history-card-user">
@@ -469,10 +467,9 @@ export default function History() {
                         <button
                           className="history-delete-entry-btn"
                           onClick={(e) => openDeleteConfirm(entry._id, e)}
-                          title="Delete this history log"
+                          title="Delete log"
                         >
-                          <FaTrashAlt />
-                          Delete Log
+                          <FaTrashAlt /> Delete Log
                         </button>
                       </div>
                     </div>
@@ -484,13 +481,14 @@ export default function History() {
         )}
 
         {/* View More */}
-        {displayed.length < filteredHistory.length && (
+        {!initialLoading && hasMore && (
           <div className="history-view-more-section">
-            <button
-              className="history-view-more-button"
-              onClick={() => setDisplayCount((c) => c + 20)}
-            >
-              View More
+            <button className="history-view-more-button" onClick={viewMore} disabled={loadingMore}>
+              {loadingMore ? (
+                <><div className="history-btn-spinner" /> Loading…</>
+              ) : (
+                <>View More <span className="history-view-more-count">({total - records.length} remaining)</span></>
+              )}
             </button>
           </div>
         )}

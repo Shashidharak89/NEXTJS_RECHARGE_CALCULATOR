@@ -15,25 +15,42 @@ export async function GET(req) {
 
   try {
     const { searchParams } = new URL(req.url);
-    const limit = parseInt(searchParams.get("limit") || "50", 10);
-    const recordId = searchParams.get("recordId");
+    const page  = Math.max(1, parseInt(searchParams.get("page")  || "1",  10));
+    const limit = Math.max(1, parseInt(searchParams.get("limit") || "10", 10));
+    const search   = searchParams.get("search")   || "";
+    const action   = searchParams.get("action")   || "";
+    const recordId = searchParams.get("recordId") || "";
 
-    let query = {};
-    
-    // If recordId is provided, filter by that specific record
-    if (recordId) {
-      query.recordId = recordId;
+    const query = {};
+
+    if (recordId) query.recordId = recordId;
+
+    if (action && action !== "ALL") query.action = action;
+
+    if (search.trim()) {
+      const re = new RegExp(search.trim(), "i");
+      query.$or = [
+        { logMessage: re },
+        { userName:   re },
+        { changedFields: re },
+      ];
     }
 
-    // Fetch history records, sorted by most recent first
+    const skip  = (page - 1) * limit;
+    const total = await History.countDocuments(query);
+
     const historyRecords = await History.find(query)
       .sort({ createdAt: -1 })
+      .skip(skip)
       .limit(limit);
 
     return Response.json({
       message: "History fetched successfully",
-      count: historyRecords.length,
-      history: historyRecords
+      history: historyRecords,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
     }, { status: 200 });
 
   } catch (err) {

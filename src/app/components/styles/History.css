@@ -833,3 +833,16 @@
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* Search icon click button */
+.history-search-icon-btn {
+  background: none;
+  border: none;
+  padding: 0 4px 0 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 0.2s;
+}
+.history-search-icon-btn:hover { color: #a78bfa; }
