@@ -21,7 +21,8 @@ import {
   FaCoins,
   FaSearch,
   FaFilter,
-  FaBolt
+  FaBolt,
+  FaCopy
 } from "react-icons/fa";
 import axios from "axios";
 import "./styles/RechargeList.css";
@@ -224,6 +225,26 @@ export default function EnhancedRechargeList() {
       showNotification("success", `Payment status updated to ${paid ? "Paid" : "Unpaid"}`);
     } catch (err) {
       showNotification("error", "Error updating payment: " + (err.response?.data?.error || err.message));
+    }
+  };
+
+  const handleCopyPhone = async (phone) => {
+    if (!phone) return;
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(phone);
+      } else {
+        const tempInput = document.createElement("input");
+        tempInput.value = phone;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand("copy");
+        document.body.removeChild(tempInput);
+      }
+      showNotification("success", "Phone number copied");
+    } catch {
+      showNotification("error", "Unable to copy phone number");
     }
   };
 
@@ -567,7 +588,20 @@ export default function EnhancedRechargeList() {
                 <div className="enhanced-detail-item">
                   <FaPhone className="enhanced-detail-icon" />
                   <span className="enhanced-detail-label">Phone:</span>
-                  <span className="enhanced-detail-value">{record.phone || "N/A"}</span>
+                  <div className="enhanced-phone-value-wrap">
+                    <span className="enhanced-detail-value">{record.phone || "N/A"}</span>
+                    {record.phone && (
+                      <button
+                        type="button"
+                        className="enhanced-copy-button"
+                        onClick={() => handleCopyPhone(record.phone)}
+                        title="Copy phone number"
+                        aria-label="Copy phone number"
+                      >
+                        <FaCopy />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="enhanced-detail-item">
                   <span className="enhanced-detail-label">Reason:</span>
